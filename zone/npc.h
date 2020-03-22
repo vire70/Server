@@ -303,7 +303,7 @@ public:
 	int					GetMaxWp() const { return max_wp; }
 	void				DisplayWaypointInfo(Client *to);
 	void				CalculateNewWaypoint();
-	void				AssignWaypoints(int32 grid);
+	void				AssignWaypoints(int32 grid, int start_wp = 0);
 	void				SetWaypointPause();
 	void				UpdateWaypoint(int wp_index);
 
@@ -312,7 +312,8 @@ public:
 	void				ResumeWandering();
 	void				PauseWandering(int pausetime);
 	void				MoveTo(const glm::vec4& position, bool saveguardspot);
-	void				GetClosestWaypoint(std::list<wplist> &wp_list, int count, const glm::vec3& location);
+	void				GetClosestWaypoints(std::list<wplist> &wp_list, int count, const glm::vec3& location);
+	int					GetClosestWaypoint(const glm::vec3& location);
 
 	uint32				GetEquippedItemFromTextureSlot(uint8 material_slot) const;	// returns item id
 	int32				GetEquipmentMaterial(uint8 material_slot) const;
@@ -475,6 +476,8 @@ public:
 
 	inline bool IsSkipAutoScale() const { return skip_auto_scale; }
 
+	void RecalculateSkills();
+
 protected:
 
 	const NPCType*	NPCTypedata;
@@ -496,6 +499,7 @@ protected:
 
 	Timer	attacked_timer;		//running while we are being attacked (damaged)
 	Timer	swarm_timer;
+	Timer	monkattack_timer;	//additional timer for tiger claw usage
 	Timer	classattack_timer;
 	Timer	knightattack_timer;
 	Timer	assist_timer;		//ask for help from nearby mobs
