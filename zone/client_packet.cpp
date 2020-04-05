@@ -4035,6 +4035,14 @@ void Client::Handle_OP_CastSpell(const EQApplicationPacket *app)
 		return;
 	}
 
+	// Hack for broken RoF2 which allows casting after a zoned IVU/IVA
+	if (invisible_undead || invisible_animals) {
+		BuffFadeByEffect(SE_InvisVsAnimals);
+		BuffFadeByEffect(SE_InvisVsUndead);
+		BuffFadeByEffect(SE_InvisVsUndead2);
+		BuffFadeByEffect(SE_Invisibility);  // Included per JJ for completeness - client handles this one atm
+	}
+
 	CastSpell_Struct* castspell = (CastSpell_Struct*)app->pBuffer;
 
 	m_TargetRing = glm::vec3(castspell->x_pos, castspell->y_pos, castspell->z_pos);
@@ -4415,9 +4423,9 @@ void Client::Handle_OP_ClientUpdate(const EQApplicationPacket *app) {
 				if (cmob != nullptr) {
 					cmob->SetPosition(ppu->x_pos, ppu->y_pos, ppu->z_pos);
 					cmob->SetHeading(EQ12toFloat(ppu->heading));
-					mMovementManager->SendCommandToClients(cmob, 0.0, 0.0, 0.0, 
+					mMovementManager->SendCommandToClients(cmob, 0.0, 0.0, 0.0,
 							0.0, 0, ClientRangeAny, nullptr, this);
-					cmob->CastToNPC()->SaveGuardSpot(glm::vec4(ppu->x_pos, 
+					cmob->CastToNPC()->SaveGuardSpot(glm::vec4(ppu->x_pos,
 							ppu->y_pos, ppu->z_pos, EQ12toFloat(ppu->heading)));
 				}
 			}
@@ -4435,7 +4443,7 @@ void Client::Handle_OP_ClientUpdate(const EQApplicationPacket *app) {
 	// From this point forward, we need to use a new set of variables for client
 	// position.  If the client is in a boat, we need to add the boat pos and
 	// the client offset together.
-	
+
 	float	cx = ppu->x_pos;
 	float	cy = ppu->y_pos;
 	float	cz = ppu->z_pos;
