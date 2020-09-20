@@ -1,5 +1,5 @@
 /*	EQEMu: Everquest Server Emulator
-	Copyright (C) 2001-2005 EQEMu Development Team (http://eqemulator.net)
+	Copyright (C) 2001-2016 EQEMu Development Team (http://eqemulator.net)
 
 	This program is free software; you can redistribute it and/or modify
 	it under the terms of the GNU General Public License as published by
@@ -15,30 +15,38 @@
 	along with this program; if not, write to the Free Software
 	Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
 */
+
 #include "../common/global_define.h"
 #include "clientlist.h"
 #include "zoneserver.h"
 #include "zonelist.h"
 #include "client.h"
-#include "console.h"
 #include "worlddb.h"
 #include "../common/string_util.h"
 #include "../common/guilds.h"
 #include "../common/races.h"
 #include "../common/classes.h"
 #include "../common/packet_dump.h"
+#include "../common/misc.h"
+#include "../common/misc_functions.h"
+#include "../common/json/json.h"
+#include "../common/event_sub.h"
+#include "web_interface.h"
 #include "wguild_mgr.h"
-
+#include "world_store.h"
 #include <set>
 
-extern ConsoleList		console_list;
+extern WebInterfaceList web_interface;
+
 extern ZSList			zoneserver_list;
 uint32 numplayers = 0;	//this really wants to be a member variable of ClientList...
 
 ClientList::ClientList()
-: CLStale_timer(45000)
+: CLStale_timer(10000)
 {
 	NextCLEID = 1;
+
+	m_tick.reset(new EQ::Timer(5000, true, std::bind(&ClientList::OnTick, this, std::placeholders::_1)));
 }
 
 ClientList::~ClientList() {
@@ -56,9 +64,7 @@ void ClientList::Process() {
 		if (!iterator.GetData()->Process()) {
 			struct in_addr in;
 			in.s_addr = iterator.GetData()->GetIP();
-			Log.Out(Logs::Detail, Logs::World_Server,"Removing client from %s:%d", inet_ntoa(in), iterator.GetData()->GetPort());
-//the client destructor should take care of this.
-//			iterator.GetData()->Free();
+			LogInfo("Removing client from [{}]:[{}]", inet_ntoa(in), iterator.GetData()->GetPort());
 			iterator.RemoveCurrent();
 		}
 		else
@@ -92,56 +98,9 @@ ClientListEntry* ClientList::GetCLE(uint32 iID) {
 	return 0;
 }
 
-//Account Limiting Code to limit the number of characters allowed on from a single account at once.
-void ClientList::EnforceSessionLimit(uint32 iLSAccountID) {
-
-	ClientListEntry* ClientEntry = 0;
-
-	LinkedListIterator<ClientListEntry*> iterator(clientlist, BACKWARD);
-
-	int CharacterCount = 0;
-
-	iterator.Reset();
-
-	while(iterator.MoreElements()) {
-
-		ClientEntry = iterator.GetData();
-
-		if ((ClientEntry->LSAccountID() == iLSAccountID) &&
-			((ClientEntry->Admin() <= (RuleI(World, ExemptAccountLimitStatus))) || (RuleI(World, ExemptAccountLimitStatus) < 0))) {
-
-			CharacterCount++;
-
-			if (CharacterCount >= (RuleI(World, AccountSessionLimit))){
-				// If we have a char name, they are in a zone, so send a kick to the zone server
-				if(strlen(ClientEntry->name())) {
-
-					auto pack =
-					    new ServerPacket(ServerOP_KickPlayer, sizeof(ServerKickPlayer_Struct));
-					ServerKickPlayer_Struct* skp = (ServerKickPlayer_Struct*) pack->pBuffer;
-					strcpy(skp->adminname, "SessionLimit");
-					strcpy(skp->name, ClientEntry->name());
-					skp->adminrank = 255;
-					zoneserver_list.SendPacket(pack);
-					safe_delete(pack);
-				}
-
-				ClientEntry->SetOnline(CLE_Status_Offline);
-
-				iterator.RemoveCurrent();
-
-				continue;
-			}
-		}
-		iterator.Advance();
-	}
-}
-
-
 //Check current CLE Entry IPs against incoming connection
 
 void ClientList::GetCLEIP(uint32 iIP) {
-
 	ClientListEntry* countCLEIPs = 0;
 	LinkedListIterator<ClientListEntry*> iterator(clientlist);
 
@@ -149,70 +108,86 @@ void ClientList::GetCLEIP(uint32 iIP) {
 	iterator.Reset();
 
 	while(iterator.MoreElements()) {
-
 		countCLEIPs = iterator.GetData();
-
-		// If the IP matches, and the connection admin status is below the exempt status,
-		// or exempt status is less than 0 (no-one is exempt)
-		if ((countCLEIPs->GetIP() == iIP) &&
-			((countCLEIPs->Admin() < (RuleI(World, ExemptMaxClientsStatus))) ||
-			(RuleI(World, ExemptMaxClientsStatus) < 0))) {
-
-			// Increment the occurences of this IP address
-			IPInstances++;
-
-			// If the number of connections exceeds the lower limit
-			if (IPInstances > (RuleI(World, MaxClientsPerIP))) {
-
-				// If MaxClientsSetByStatus is set to True, override other IP Limit Rules
-				if (RuleB(World, MaxClientsSetByStatus)) {
-
-					// The IP Limit is set by the status of the account if status > MaxClientsPerIP
-					if (IPInstances > countCLEIPs->Admin()) {
-
+		if ((countCLEIPs->GetIP() == iIP) && ((countCLEIPs->Admin() < (RuleI(World, ExemptMaxClientsStatus))) || (RuleI(World, ExemptMaxClientsStatus) < 0))) { // If the IP matches, and the connection admin status is below the exempt status, or exempt status is less than 0 (no-one is exempt)
+			IPInstances++; // Increment the occurences of this IP address
+			LogClientLogin("Account ID: [{}] Account Name: [{}] IP: [{}]", countCLEIPs->LSID(), countCLEIPs->LSName(), long2ip(countCLEIPs->GetIP()).c_str());
+			if (RuleB(World, EnableIPExemptions)) {
+				LogClientLogin("Account ID: [{}] Account Name: [{}] IP: [{}] IP Instances: [{}] Max IP Instances: [{}]", countCLEIPs->LSID(), countCLEIPs->LSName(), long2ip(countCLEIPs->GetIP()).c_str(), IPInstances, database.GetIPExemption(long2ip(countCLEIPs->GetIP()).c_str()));
+				if (IPInstances > database.GetIPExemption(long2ip(countCLEIPs->GetIP()).c_str())) {
+					if(RuleB(World, IPLimitDisconnectAll)) {
+						LogClientLogin("Disconnect: All accounts on IP [{}]", long2ip(countCLEIPs->GetIP()).c_str());
+						DisconnectByIP(iIP);
+						return;
+					} else {
+						LogClientLogin("Disconnect: Account [{}] on IP [{}]", countCLEIPs->LSName(), long2ip(countCLEIPs->GetIP()).c_str());
+						countCLEIPs->SetOnline(CLE_Status::Offline);
+						iterator.RemoveCurrent();
+						continue;
+					}
+				}
+			} else {
+				if (IPInstances > (RuleI(World, MaxClientsPerIP))) { // If the number of connections exceeds the lower limit
+					if (RuleB(World, MaxClientsSetByStatus)) { // If MaxClientsSetByStatus is set to True, override other IP Limit Rules
+						LogClientLogin("Account ID: [{}] Account Name: [{}] IP: [{}] IP Instances: [{}] Max IP Instances: [{}]", countCLEIPs->LSID(), countCLEIPs->LSName(), long2ip(countCLEIPs->GetIP()).c_str(), IPInstances, countCLEIPs->Admin());
+						if (IPInstances > countCLEIPs->Admin()) { // The IP Limit is set by the status of the account if status > MaxClientsPerIP
+							if(RuleB(World, IPLimitDisconnectAll)) {
+								LogClientLogin("Disconnect: All accounts on IP [{}]", long2ip(countCLEIPs->GetIP()).c_str());
+								DisconnectByIP(iIP);
+								return;
+							} else {
+								LogClientLogin("Disconnect: Account [{}] on IP [{}]", countCLEIPs->LSName(), long2ip(countCLEIPs->GetIP()).c_str());
+								countCLEIPs->SetOnline(CLE_Status::Offline); // Remove the connection
+								iterator.RemoveCurrent();
+								continue;
+							}
+						}
+					} else if ((countCLEIPs->Admin() < RuleI(World, AddMaxClientsStatus)) || (RuleI(World, AddMaxClientsStatus) < 0)) { // Else if the Admin status of the connection is not eligible for the higher limit, or there is no higher limit (AddMaxClientStatus < 0)
 						if(RuleB(World, IPLimitDisconnectAll)) {
+							LogClientLogin("Disconnect: All accounts on IP [{}]", long2ip(countCLEIPs->GetIP()).c_str());
 							DisconnectByIP(iIP);
 							return;
 						} else {
-							// Remove the connection
-							countCLEIPs->SetOnline(CLE_Status_Offline);
+							LogClientLogin("Disconnect: Account [{}] on IP [{}]", countCLEIPs->LSName(), long2ip(countCLEIPs->GetIP()).c_str());
+							countCLEIPs->SetOnline(CLE_Status::Offline); // Remove the connection
 							iterator.RemoveCurrent();
 							continue;
 						}
-					}
-				}
-				// Else if the Admin status of the connection is not eligible for the higher limit,
-				// or there is no higher limit (AddMaxClientStatus<0)
-				else if ((countCLEIPs->Admin() < (RuleI(World, AddMaxClientsStatus)) ||
-						(RuleI(World, AddMaxClientsStatus) < 0))) {
-
-					if(RuleB(World, IPLimitDisconnectAll)) {
-						DisconnectByIP(iIP);
-						return;
-					} else {
-						// Remove the connection
-						countCLEIPs->SetOnline(CLE_Status_Offline);
-						iterator.RemoveCurrent();
-						continue;
-					}
-				}
-				// else they are eligible for the higher limit, but if they exceed that
-				else if (IPInstances > RuleI(World, AddMaxClientsPerIP)) {
-
-					if(RuleB(World, IPLimitDisconnectAll)) {
-						DisconnectByIP(iIP);
-						return;
-					} else {
-						// Remove the connection
-						countCLEIPs->SetOnline(CLE_Status_Offline);
-						iterator.RemoveCurrent();
-						continue;
+					} else if (IPInstances > RuleI(World, AddMaxClientsPerIP)) { // else they are eligible for the higher limit, but if they exceed that
+						if(RuleB(World, IPLimitDisconnectAll)) {
+							LogClientLogin("Disconnect: All accounts on IP [{}]", long2ip(countCLEIPs->GetIP()).c_str());
+							DisconnectByIP(iIP);
+							return;
+						} else {
+							LogClientLogin("Disconnect: Account [{}] on IP [{}]", countCLEIPs->LSName(), long2ip(countCLEIPs->GetIP()).c_str());
+							countCLEIPs->SetOnline(CLE_Status::Offline); // Remove the connection
+							iterator.RemoveCurrent();
+							continue;
+						}
 					}
 				}
 			}
 		}
 		iterator.Advance();
 	}
+}
+
+uint32 ClientList::GetCLEIPCount(uint32 iIP) {
+	ClientListEntry* countCLEIPs = 0;
+	LinkedListIterator<ClientListEntry*> iterator(clientlist);
+
+	int IPInstances = 0;
+	iterator.Reset();
+
+	while (iterator.MoreElements()) {
+		countCLEIPs = iterator.GetData();
+		if ((countCLEIPs->GetIP() == iIP) && ((countCLEIPs->Admin() < (RuleI(World, ExemptMaxClientsStatus))) || (RuleI(World, ExemptMaxClientsStatus) < 0)) && countCLEIPs->Online() >= CLE_Status::Online) { // If the IP matches, and the connection admin status is below the exempt status, or exempt status is less than 0 (no-one is exempt)
+			IPInstances++; // Increment the occurences of this IP address
+		}
+		iterator.Advance();
+	}
+
+	return IPInstances;
 }
 
 void ClientList::DisconnectByIP(uint32 iIP) {
@@ -232,7 +207,7 @@ void ClientList::DisconnectByIP(uint32 iIP) {
 				zoneserver_list.SendPacket(pack);
 				safe_delete(pack);
 			}
-			countCLEIPs->SetOnline(CLE_Status_Offline);
+			countCLEIPs->SetOnline(CLE_Status::Offline);
 			iterator.RemoveCurrent();
 		}
 		iterator.Advance();
@@ -250,9 +225,8 @@ ClientListEntry* ClientList::FindCharacter(const char* name) {
 		}
 		iterator.Advance();
 	}
-	return 0;
+	return nullptr;
 }
-
 
 ClientListEntry* ClientList::FindCLEByAccountID(uint32 iAccID) {
 	LinkedListIterator<ClientListEntry*> iterator(clientlist);
@@ -264,7 +238,7 @@ ClientListEntry* ClientList::FindCLEByAccountID(uint32 iAccID) {
 		}
 		iterator.Advance();
 	}
-	return 0;
+	return nullptr;
 }
 
 ClientListEntry* ClientList::FindCLEByCharacterID(uint32 iCharID) {
@@ -277,7 +251,20 @@ ClientListEntry* ClientList::FindCLEByCharacterID(uint32 iCharID) {
 		}
 		iterator.Advance();
 	}
-	return 0;
+	return nullptr;
+}
+
+ClientListEntry* ClientList::FindCLEByLSID(uint32 iLSID) {
+	LinkedListIterator<ClientListEntry*> iterator(clientlist);
+
+	iterator.Reset();
+	while (iterator.MoreElements()) {
+		if (iterator.GetData()->LSID() == iLSID) {
+			return iterator.GetData();
+		}
+		iterator.Advance();
+	}
+	return nullptr;
 }
 
 void ClientList::SendCLEList(const int16& admin, const char* to, WorldTCPConnection* connection, const char* iName) {
@@ -307,7 +294,7 @@ void ClientList::SendCLEList(const int16& admin, const char* to, WorldTCPConnect
 			if (cle->LSID())
 				AppendAnyLenString(&output, &outsize, &outlen, "%s  LSID: %i  LSName: %s  WorldAdmin: %i", newline, cle->LSID(), cle->LSName(), cle->WorldAdmin());
 			if (cle->CharID())
-				AppendAnyLenString(&output, &outsize, &outlen, "%s  CharID: %i  CharName: %s  Zone: %s (%i)", newline, cle->CharID(), cle->name(), database.GetZoneName(cle->zone()), cle->zone());
+				AppendAnyLenString(&output, &outsize, &outlen, "%s  CharID: %i  CharName: %s  Zone: %s (%i)", newline, cle->CharID(), cle->name(), ZoneName(cle->zone()), cle->zone());
 			if (outlen >= 3072) {
 				connection->SendEmoteMessageRaw(to, 0, 0, 10, output);
 				safe_delete(output);
@@ -328,8 +315,8 @@ void ClientList::SendCLEList(const int16& admin, const char* to, WorldTCPConnect
 }
 
 
-void ClientList::CLEAdd(uint32 iLSID, const char* iLoginName, const char* iLoginKey, int16 iWorldAdmin, uint32 ip, uint8 local) {
-	auto tmp = new ClientListEntry(GetNextCLEID(), iLSID, iLoginName, iLoginKey, iWorldAdmin, ip, local);
+void ClientList::CLEAdd(uint32 iLSID, const char *iLoginServerName, const char* iLoginName, const char* iLoginKey, int16 iWorldAdmin, uint32 ip, uint8 local) {
+	auto tmp = new ClientListEntry(GetNextCLEID(), iLSID, iLoginServerName, iLoginName, iLoginKey, iWorldAdmin, ip, local);
 
 	clientlist.Append(tmp);
 }
@@ -355,10 +342,10 @@ void ClientList::ClientUpdate(ZoneServer* zoneserver, ServerClientList_Struct* s
 		if (iterator.GetData()->GetID() == scl->wid) {
 			cle = iterator.GetData();
 			if (scl->remove == 2){
-				cle->LeavingZone(zoneserver, CLE_Status_Offline);
+				cle->LeavingZone(zoneserver, CLE_Status::Offline);
 			}
 			else if (scl->remove == 1)
-				cle->LeavingZone(zoneserver, CLE_Status_Zoning);
+				cle->LeavingZone(zoneserver, CLE_Status::Zoning);
 			else
 				cle->Update(zoneserver, scl);
 			return;
@@ -366,11 +353,11 @@ void ClientList::ClientUpdate(ZoneServer* zoneserver, ServerClientList_Struct* s
 		iterator.Advance();
 	}
 	if (scl->remove == 2)
-		cle = new ClientListEntry(GetNextCLEID(), zoneserver, scl, CLE_Status_Online);
+		cle = new ClientListEntry(GetNextCLEID(), zoneserver, scl, CLE_Status::Online);
 	else if (scl->remove == 1)
-		cle = new ClientListEntry(GetNextCLEID(), zoneserver, scl, CLE_Status_Zoning);
+		cle = new ClientListEntry(GetNextCLEID(), zoneserver, scl, CLE_Status::Zoning);
 	else
-		cle = new ClientListEntry(GetNextCLEID(), zoneserver, scl, CLE_Status_InZone);
+		cle = new ClientListEntry(GetNextCLEID(), zoneserver, scl, CLE_Status::InZone);
 	clientlist.Insert(cle);
 	zoneserver->ChangeWID(scl->charid, cle->GetID());
 }
@@ -389,52 +376,18 @@ void ClientList::CLEKeepAlive(uint32 numupdates, uint32* wid) {
 	}
 }
 
-
-ClientListEntry* ClientList::CheckAuth(uint32 id, const char* iKey, uint32 ip ) {
-	LinkedListIterator<ClientListEntry*> iterator(clientlist);
-
-	iterator.Reset();
-	while(iterator.MoreElements()) {
-		if (iterator.GetData()->CheckAuth(id, iKey, ip))
-			return iterator.GetData();
-		iterator.Advance();
-	}
-	return 0;
-}
-ClientListEntry* ClientList::CheckAuth(uint32 iLSID, const char* iKey) {
-	LinkedListIterator<ClientListEntry*> iterator(clientlist);
+ClientListEntry *ClientList::CheckAuth(uint32 iLSID, const char *iKey)
+{
+	LinkedListIterator<ClientListEntry *> iterator(clientlist);
 
 	iterator.Reset();
-	while(iterator.MoreElements()) {
-		if (iterator.GetData()->CheckAuth(iLSID, iKey))
+	while (iterator.MoreElements()) {
+		if (iterator.GetData()->CheckAuth(iLSID, iKey)) {
 			return iterator.GetData();
+		}
 		iterator.Advance();
 	}
-	return 0;
-}
 
-ClientListEntry* ClientList::CheckAuth(const char* iName, const char* iPassword) {
-	LinkedListIterator<ClientListEntry*> iterator(clientlist);
-	MD5 tmpMD5(iPassword);
-
-	iterator.Reset();
-	while(iterator.MoreElements()) {
-		if (iterator.GetData()->CheckAuth(iName, tmpMD5))
-			return iterator.GetData();
-		iterator.Advance();
-	}
-	int16 tmpadmin;
-
-	//Log.LogDebugType(Logs::Detail, Logs::World_Server,"Login with '%s' and '%s'", iName, iPassword);
-
-	uint32 accid = database.CheckLogin(iName, iPassword, &tmpadmin);
-	if (accid) {
-		uint32 lsid = 0;
-		database.GetAccountIDByName(iName, &tmpadmin, &lsid);
-		auto tmp = new ClientListEntry(GetNextCLEID(), lsid, iName, tmpMD5, tmpadmin, 0, 0);
-		clientlist.Append(tmp);
-		return tmp;
-	}
 	return 0;
 }
 
@@ -447,7 +400,7 @@ void ClientList::SendOnlineGuildMembers(uint32 FromID, uint32 GuildID)
 
 	if(!from)
 	{
-		Log.Out(Logs::Detail, Logs::World_Server,"Invalid client. FromID=%i GuildID=%i", FromID, GuildID);
+		LogInfo("Invalid client. FromID=[{}] GuildID=[{}]", FromID, GuildID);
 		return;
 	}
 
@@ -509,6 +462,28 @@ void ClientList::SendWhoAll(uint32 fromid,const char* to, int16 admin, Who_All_S
 	//uint32 x = 0;
 	int whomlen = 0;
 	if (whom) {
+		// fixes for client converting some queries into a race query instead of zone
+		if (whom->wrace == 221) {
+			whom->wrace = 0xFFFF;
+			strcpy(whom->whom, "scarlet");
+		}
+		if (whom->wrace == 327) {
+			whom->wrace = 0xFFFF;
+			strcpy(whom->whom, "crystal");
+		}
+		if (whom->wrace == 103) {
+			whom->wrace = 0xFFFF;
+			strcpy(whom->whom, "kedge");
+		}
+		if (whom->wrace == 230) {
+			whom->wrace = 0xFFFF;
+			strcpy(whom->whom, "akheva");
+		}
+		if (whom->wrace == 229) {
+			whom->wrace = 0xFFFF;
+			strcpy(whom->whom, "netherbian");
+		}
+
 		whomlen = strlen(whom->whom);
 		if(whom->wrace == 0x001A) // 0x001A is the old Froglok race number and is sent by the client for /who all froglok
 			whom->wrace = FROGLOK; // This is what EQEmu uses for the Froglok Race number.
@@ -526,9 +501,9 @@ void ClientList::SendWhoAll(uint32 fromid,const char* to, int16 admin, Who_All_S
 	countclients.Reset();
 	while(countclients.MoreElements()){
 		countcle = countclients.GetData();
-		const char* tmpZone = database.GetZoneName(countcle->zone());
+		const char* tmpZone = ZoneName(countcle->zone());
 		if (
-	(countcle->Online() >= CLE_Status_Zoning) &&
+	(countcle->Online() >= CLE_Status::Zoning) &&
 	(!countcle->GetGM() || countcle->Anon() != 1 || admin >= countcle->Admin()) &&
 	(whom == 0 || (
 		((countcle->Admin() >= 80 && countcle->GetGM()) || whom->gmlookup == 0xFFFF) &&
@@ -606,9 +581,9 @@ void ClientList::SendWhoAll(uint32 fromid,const char* to, int16 admin, Who_All_S
 	while(iterator.MoreElements()) {
 		cle = iterator.GetData();
 
-		const char* tmpZone = database.GetZoneName(cle->zone());
+		const char* tmpZone = ZoneName(cle->zone());
 		if (
-	(cle->Online() >= CLE_Status_Zoning) &&
+	(cle->Online() >= CLE_Status::Zoning) &&
 	(!cle->GetGM() || cle->Anon() != 1 || admin >= cle->Admin()) &&
 	(whom == 0 || (
 		((cle->Admin() >= 80 && cle->GetGM()) || whom->gmlookup == 0xFFFF) &&
@@ -744,14 +719,13 @@ void ClientList::SendWhoAll(uint32 fromid,const char* to, int16 admin, Who_All_S
 		}
 		iterator.Advance();
 	}
-	pack2->Deflate();
 	//zoneserver_list.SendPacket(pack2); // NO NO NO WHY WOULD YOU SEND IT TO EVERY ZONE SERVER?!?
 	SendPacket(to,pack2);
 	safe_delete(pack2);
-	safe_delete(output);
+	safe_delete_array(output);
 	}
 	catch(...){
-		Log.Out(Logs::Detail, Logs::World_Server,"Unknown error in world's SendWhoAll (probably mem error), ignoring...");
+		LogInfo("Unknown error in world's SendWhoAll (probably mem error), ignoring");
 		return;
 	}
 }
@@ -782,7 +756,7 @@ void ClientList::SendFriendsWho(ServerFriendsWho_Struct *FriendsWho, WorldTCPCon
 		Friend_[Seperator - FriendsPointer] = 0;
 
 		ClientListEntry* CLE = FindCharacter(Friend_);
-		if(CLE && CLE->name() && (CLE->Online() >= CLE_Status_Zoning) && !(CLE->GetGM() && CLE->Anon())) {
+		if(CLE && CLE->name() && (CLE->Online() >= CLE_Status::Zoning) && !(CLE->GetGM() && CLE->Anon())) {
 			FriendsCLEs.push_back(CLE);
 			TotalLength += strlen(CLE->name());
 			int GuildNameLength = strlen(guild_mgr.GetGuildName(CLE->GuildID()));
@@ -890,12 +864,11 @@ void ClientList::SendFriendsWho(ServerFriendsWho_Struct *FriendsWho, WorldTCPCon
 			bufptr += sizeof(WhoAllPlayerPart4);
 
 		}
-		pack2->Deflate();
 		SendPacket(FriendsWho->FromName,pack2);
 		safe_delete(pack2);
 	}
 	catch(...){
-		Log.Out(Logs::Detail, Logs::World_Server,"Unknown error in world's SendFriendsWho (probably mem error), ignoring...");
+		LogInfo("Unknown error in world's SendFriendsWho (probably mem error), ignoring");
 		return;
 	}
 }
@@ -965,7 +938,6 @@ void ClientList::SendLFGMatches(ServerLFGMatchesRequest_Struct *smrs) {
 			}
 			Iterator.Advance();
 		}
-		Pack->Deflate();
 	}
 	SendPacket(smrs->FromName,Pack);
 	safe_delete(Pack);
@@ -992,27 +964,27 @@ void ClientList::ConsoleSendWhoAll(const char* to, int16 admin, Who_All_Struct* 
 	else
 		AppendAnyLenString(&output, &outsize, &outlen, "\n");
 	iterator.Reset();
-	while(iterator.MoreElements()) {
+	while (iterator.MoreElements()) {
 		cle = iterator.GetData();
-		const char* tmpZone = database.GetZoneName(cle->zone());
+		const char* tmpZone = ZoneName(cle->zone());
 		if (
-	(cle->Online() >= CLE_Status_Zoning)
-	&& (whom == 0 || (
-		((cle->Admin() >= 80 && cle->GetGM()) || whom->gmlookup == 0xFFFF) &&
-		(whom->lvllow == 0xFFFF || (cle->level() >= whom->lvllow && cle->level() <= whom->lvlhigh)) &&
-		(whom->wclass == 0xFFFF || cle->class_() == whom->wclass) &&
-		(whom->wrace == 0xFFFF || cle->race() == whom->wrace) &&
-		(whomlen == 0 || (
-			(tmpZone != 0 && strncasecmp(tmpZone, whom->whom, whomlen) == 0) ||
-			strncasecmp(cle->name(),whom->whom, whomlen) == 0 ||
-			(strncasecmp(guild_mgr.GetGuildName(cle->GuildID()), whom->whom, whomlen) == 0) ||
-			(admin >= 100 && strncasecmp(cle->AccountName(), whom->whom, whomlen) == 0)
-		))
-	))
-) {
+			(cle->Online() >= CLE_Status::Zoning)
+			&& (whom == 0 || (
+				((cle->Admin() >= 80 && cle->GetGM()) || whom->gmlookup == 0xFFFF) &&
+				(whom->lvllow == 0xFFFF || (cle->level() >= whom->lvllow && cle->level() <= whom->lvlhigh)) &&
+				(whom->wclass == 0xFFFF || cle->class_() == whom->wclass) &&
+				(whom->wrace == 0xFFFF || cle->race() == whom->wrace) &&
+				(whomlen == 0 || (
+					(tmpZone != 0 && strncasecmp(tmpZone, whom->whom, whomlen) == 0) ||
+					strncasecmp(cle->name(), whom->whom, whomlen) == 0 ||
+					(strncasecmp(guild_mgr.GetGuildName(cle->GuildID()), whom->whom, whomlen) == 0) ||
+					(admin >= 100 && strncasecmp(cle->AccountName(), whom->whom, whomlen) == 0)
+					))
+				))
+			) {
 			line[0] = 0;
-// MYRA - use new (5.x) Status labels in who for telnet connection
-			if (cle->Admin() >=250)
+			// MYRA - use new (5.x) Status labels in who for telnet connection
+			if (cle->Admin() >= 250)
 				strcpy(tmpgm, "* GM-Impossible * ");
 			else if (cle->Admin() >= 200)
 				strcpy(tmpgm, "* GM-Mgmt * ");
@@ -1044,11 +1016,12 @@ void ClientList::ConsoleSendWhoAll(const char* to, int16 admin, Who_All_Struct* 
 				strcpy(tmpgm, "* Steward * ");
 			else
 				tmpgm[0] = 0;
-// end Myra
+			// end Myra
 
 			if (guild_mgr.GuildExists(cle->GuildID())) {
 				snprintf(tmpguild, 36, " <%s>", guild_mgr.GetGuildName(cle->GuildID()));
-			} else
+			}
+			else
 				tmpguild[0] = 0;
 
 			if (cle->LFG())
@@ -1064,7 +1037,7 @@ void ClientList::ConsoleSendWhoAll(const char* to, int16 admin, Who_All_Struct* 
 
 			if (cle->Anon() == 2) { // Roleplay
 				if (admin >= 100 && admin >= cle->Admin())
-					sprintf(line, "  %s[RolePlay %i %s] %s (%s)%s zone: %s%s%s", tmpgm, cle->level(), GetEQClassName(cle->class_(),cle->level()), cle->name(), GetRaceName(cle->race()), tmpguild, tmpZone, LFG, accinfo);
+					sprintf(line, "  %s[RolePlay %i %s] %s (%s)%s zone: %s%s%s", tmpgm, cle->level(), GetClassIDName(cle->class_(), cle->level()), cle->name(), GetRaceIDName(cle->race()), tmpguild, tmpZone, LFG, accinfo);
 				else if (cle->Admin() >= 80 && admin < 80 && cle->GetGM()) {
 					iterator.Advance();
 					continue;
@@ -1074,7 +1047,7 @@ void ClientList::ConsoleSendWhoAll(const char* to, int16 admin, Who_All_Struct* 
 			}
 			else if (cle->Anon() == 1) { // Anon
 				if (admin >= 100 && admin >= cle->Admin())
-					sprintf(line, "  %s[ANON %i %s] %s (%s)%s zone: %s%s%s", tmpgm, cle->level(), GetEQClassName(cle->class_(),cle->level()), cle->name(), GetRaceName(cle->race()), tmpguild, tmpZone, LFG, accinfo);
+					sprintf(line, "  %s[ANON %i %s] %s (%s)%s zone: %s%s%s", tmpgm, cle->level(), GetClassIDName(cle->class_(), cle->level()), cle->name(), GetRaceIDName(cle->race()), tmpguild, tmpZone, LFG, accinfo);
 				else if (cle->Admin() >= 80 && cle->GetGM()) {
 					iterator.Advance();
 					continue;
@@ -1083,7 +1056,7 @@ void ClientList::ConsoleSendWhoAll(const char* to, int16 admin, Who_All_Struct* 
 					sprintf(line, "  %s[ANONYMOUS] %s%s%s", tmpgm, cle->name(), LFG, accinfo);
 			}
 			else
-				sprintf(line, "  %s[%i %s] %s (%s)%s zone: %s%s%s", tmpgm, cle->level(), GetEQClassName(cle->class_(),cle->level()), cle->name(), GetRaceName(cle->race()), tmpguild, tmpZone, LFG, accinfo);
+				sprintf(line, "  %s[%i %s] %s (%s)%s zone: %s%s%s", tmpgm, cle->level(), GetClassIDName(cle->class_(), cle->level()), cle->name(), GetRaceIDName(cle->race()), tmpguild, tmpZone, LFG, accinfo);
 
 			AppendAnyLenString(&output, &outsize, &outlen, line);
 			if (outlen >= 3584) {
@@ -1114,7 +1087,8 @@ void ClientList::ConsoleSendWhoAll(const char* to, int16 admin, Who_All_Struct* 
 			AppendAnyLenString(&output, &outsize, &outlen, "\r\n");
 		else
 			AppendAnyLenString(&output, &outsize, &outlen, "\n");
-		console_list.SendConsoleWho(connection, to, admin, &output, &outsize, &outlen);
+
+		//console_list.SendConsoleWho(connection, to, admin, &output, &outsize, &outlen);
 	}
 	if (output)
 		connection->SendEmoteMessageRaw(to, 0, 0, 10, output);
@@ -1130,7 +1104,6 @@ Client* ClientList::FindByAccountID(uint32 account_id) {
 
 	iterator.Reset();
 	while(iterator.MoreElements()) {
-		Log.Out(Logs::Detail, Logs::World_Server, "ClientList[0x%08x]::FindByAccountID(%p) iterator.GetData()[%p]", this, account_id, iterator.GetData());
 		if (iterator.GetData()->GetAccountID() == account_id) {
 			Client* tmp = iterator.GetData();
 			return tmp;
@@ -1145,7 +1118,6 @@ Client* ClientList::FindByName(char* charname) {
 
 	iterator.Reset();
 	while(iterator.MoreElements()) {
-		Log.Out(Logs::Detail, Logs::World_Server, "ClientList[0x%08x]::FindByName(\"%s\") iterator.GetData()[%p]", this, charname, iterator.GetData());
 		if (iterator.GetData()->GetCharName() == charname) {
 			Client* tmp = iterator.GetData();
 			return tmp;
@@ -1183,7 +1155,7 @@ void ClientList::ZoneBootup(ZoneServer* zs) {
 				iterator.GetData()->EnterWorld(false);
 			}
 			else if (iterator.GetData()->WaitingForBootup() == zs->GetID()) {
-				iterator.GetData()->ZoneUnavail();
+				iterator.GetData()->TellClientZoneUnavailable();
 			}
 		}
 		iterator.Advance();
@@ -1268,7 +1240,33 @@ void ClientList::UpdateClientGuild(uint32 char_id, uint32 guild_id) {
 	}
 }
 
+void ClientList::RemoveCLEByLSID(uint32 iLSID)
+{
+	LinkedListIterator<ClientListEntry *> iterator(clientlist);
 
+	iterator.Reset();
+	while (iterator.MoreElements()) {
+		if (iterator.GetData()->LSAccountID() == iLSID) {
+			iterator.RemoveCurrent();
+		}
+		else {
+			iterator.Advance();
+		}
+	}
+}
+
+bool ClientList::IsAccountInGame(uint32 iLSID) {
+	LinkedListIterator<ClientListEntry*> iterator(clientlist);
+
+	while (iterator.MoreElements()) {
+		if (iterator.GetData()->LSID() == iLSID && iterator.GetData()->Online() == CLE_Status::InZone) {
+			return true;
+		}
+		iterator.Advance();
+	}
+
+	return false;
+}
 
 int ClientList::GetClientCount() {
 	return(numplayers);
@@ -1285,7 +1283,7 @@ void ClientList::GetClients(const char *zone_name, std::vector<ClientListEntry *
 			iterator.Advance();
 		}
 	} else {
-		uint32 zoneid = database.GetZoneID(zone_name);
+		uint32 zoneid = ZoneID(zone_name);
 		while(iterator.MoreElements()) {
 			ClientListEntry* tmp = iterator.GetData();
 			if(tmp->zone() == zoneid)
@@ -1370,3 +1368,162 @@ void ClientList::SendClientVersionSummary(const char *Name)
 		ClientTitaniumCount, ClientSoFCount, ClientSoDCount, ClientUnderfootCount, ClientRoFCount, ClientRoF2Count, ClientTDSCount); 
 }
 
+void ClientList::OnTick(EQ::Timer *t)
+{
+	if (!EventSubscriptionWatcher::Get()->IsSubscribed("EQW::ClientUpdate")) {
+		return;
+	}
+
+	Json::Value out;
+	out["event"] = "EQW::ClientUpdate";
+	out["data"] = Json::Value();
+
+	LinkedListIterator<ClientListEntry*> Iterator(clientlist);
+
+	Iterator.Reset();
+
+	while (Iterator.MoreElements())
+	{
+		ClientListEntry* cle = Iterator.GetData();
+
+		Json::Value outclient;
+
+		outclient["Online"] = cle->Online();
+		outclient["ID"] = cle->GetID();
+		outclient["IP"] = cle->GetIP();
+		outclient["LSID"] = cle->LSID();
+		outclient["LSAccountID"] = cle->LSAccountID();
+		outclient["LSName"] = cle->LSName();
+		outclient["WorldAdmin"] = cle->WorldAdmin();
+
+		outclient["AccountID"] = cle->AccountID();
+		outclient["AccountName"] = cle->AccountName();
+		outclient["Admin"] = cle->Admin();
+
+		auto server = cle->Server();
+		if (server) {
+			outclient["Server"]["CAddress"] = server->GetCAddress();
+			outclient["Server"]["CLocalAddress"] = server->GetCLocalAddress();
+			outclient["Server"]["CompileTime"] = server->GetCompileTime();
+			outclient["Server"]["CPort"] = server->GetCPort();
+			outclient["Server"]["ID"] = server->GetID();
+			outclient["Server"]["InstanceID"] = server->GetInstanceID();
+			outclient["Server"]["IP"] = server->GetIP();
+			outclient["Server"]["LaunchedName"] = server->GetLaunchedName();
+			outclient["Server"]["LaunchName"] = server->GetLaunchName();
+			outclient["Server"]["Port"] = server->GetPort();
+			outclient["Server"]["PrevZoneID"] = server->GetPrevZoneID();
+			outclient["Server"]["UUID"] = server->GetUUID();
+			outclient["Server"]["ZoneID"] = server->GetZoneID();
+			outclient["Server"]["ZoneLongName"] = server->GetZoneLongName();
+			outclient["Server"]["ZoneName"] = server->GetZoneName();
+			outclient["Server"]["ZoneOSProcessID"] = server->GetZoneOSProcessID();
+			outclient["Server"]["NumPlayers"] = server->NumPlayers();
+			outclient["Server"]["BootingUp"] = server->IsBootingUp();
+			outclient["Server"]["StaticZone"] = server->IsStaticZone();
+		}
+		else {
+			outclient["Server"] = Json::Value();
+		}
+
+		outclient["CharID"] = cle->CharID();
+		outclient["name"] = cle->name();
+		outclient["zone"] = cle->zone();
+		outclient["instance"] = cle->instance();
+		outclient["level"] = cle->level();
+		outclient["class_"] = cle->class_();
+		outclient["race"] = cle->race();
+		outclient["Anon"] = cle->Anon();
+
+		outclient["TellsOff"] = cle->TellsOff();
+		outclient["GuildID"] = cle->GuildID();
+		outclient["LFG"] = cle->LFG();
+		outclient["GM"] = cle->GetGM();
+		outclient["LocalClient"] = cle->IsLocalClient();
+		outclient["LFGFromLevel"] = cle->GetLFGFromLevel();
+		outclient["LFGToLevel"] = cle->GetLFGToLevel();
+		outclient["LFGMatchFilter"] = cle->GetLFGMatchFilter();
+		outclient["LFGComments"] = cle->GetLFGComments();
+		outclient["ClientVersion"] = cle->GetClientVersion();
+		out["data"].append(outclient);
+
+		Iterator.Advance();
+	}
+
+	web_interface.SendEvent(out);
+}
+
+/**
+ * @param response
+ */
+void ClientList::GetClientList(Json::Value &response)
+{
+	LinkedListIterator<ClientListEntry *> Iterator(clientlist);
+
+	Iterator.Reset();
+
+	while (Iterator.MoreElements()) {
+		ClientListEntry *cle = Iterator.GetData();
+
+		Json::Value row;
+
+		row["account_id"]             = cle->AccountID();
+		row["account_name"]           = cle->AccountName();
+		row["admin"]                  = cle->Admin();
+		row["id"]                     = cle->GetID();
+		row["ip"]                     = cle->GetIP();
+		row["loginserver_account_id"] = cle->LSAccountID();
+		row["loginserver_id"]         = cle->LSID();
+		row["loginserver_name"]       = cle->LSName();
+		row["online"]                 = cle->Online();
+		row["world_admin"]            = cle->WorldAdmin();
+
+		auto server = cle->Server();
+		if (server) {
+			row["server"]["client_address"]       = server->GetCAddress();
+			row["server"]["client_local_address"] = server->GetCLocalAddress();
+			row["server"]["client_port"]          = server->GetCPort();
+			row["server"]["compile_time"]         = server->GetCompileTime();
+			row["server"]["id"]                   = server->GetID();
+			row["server"]["instance_id"]          = server->GetInstanceID();
+			row["server"]["ip"]                   = server->GetIP();
+			row["server"]["is_booting"]           = server->IsBootingUp();
+			row["server"]["launch_name"]          = server->GetLaunchName();
+			row["server"]["launched_name"]        = server->GetLaunchedName();
+			row["server"]["number_players"]       = server->NumPlayers();
+			row["server"]["port"]                 = server->GetPort();
+			row["server"]["previous_zone_id"]     = server->GetPrevZoneID();
+			row["server"]["static_zone"]          = server->IsStaticZone();
+			row["server"]["uui"]                  = server->GetUUID();
+			row["server"]["zone_id"]              = server->GetZoneID();
+			row["server"]["zone_long_name"]       = server->GetZoneLongName();
+			row["server"]["zone_name"]            = server->GetZoneName();
+			row["server"]["zone_os_pid"]          = server->GetZoneOSProcessID();
+		}
+		else {
+			row["server"] = Json::Value();
+		}
+		row["anon"]             = cle->Anon();
+		row["character_id"]     = cle->CharID();
+		row["class"]            = cle->class_();
+		row["client_version"]   = cle->GetClientVersion();
+		row["gm"]               = cle->GetGM();
+		row["guild_id"]         = cle->GuildID();
+		row["instance"]         = cle->instance();
+		row["is_local_client"]  = cle->IsLocalClient();
+		row["level"]            = cle->level();
+		row["lfg"]              = cle->LFG();
+		row["lfg_comments"]     = cle->GetLFGComments();
+		row["lfg_from_level"]   = cle->GetLFGFromLevel();
+		row["lfg_match_filter"] = cle->GetLFGMatchFilter();
+		row["lfg_to_level"]     = cle->GetLFGToLevel();
+		row["name"]             = cle->name();
+		row["race"]             = cle->race();
+		row["tells_off"]        = cle->TellsOff();
+		row["zone"]             = cle->zone();
+
+		response.append(row);
+
+		Iterator.Advance();
+	}
+}

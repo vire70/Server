@@ -17,10 +17,12 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
 */
 
 #ifdef _WINDOWS
-#define snprintf	_snprintf
-#define vsnprintf	_vsnprintf
-#define strncasecmp	_strnicmp
-#define strcasecmp	_stricmp
+	#if (!defined(_MSC_VER) || (defined(_MSC_VER) && _MSC_VER < 1900))
+		#define snprintf	_snprintf
+		#define vsnprintf	_vsnprintf
+	#endif
+	#define strncasecmp	_strnicmp
+	#define strcasecmp	_stricmp
 #endif
 
 #include "../common/races.h"
@@ -34,7 +36,7 @@ Encounter::Encounter(const char* enc_name)
 	:Mob
 	(
 	nullptr, nullptr, 0, 0, 0, INVISIBLE_MAN, 0, BT_NoTarget, 0, 0, 0, 0, 0, glm::vec4(0,0,0,0), 0, 0, 0,
-	0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
+	0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, EQ::TintProfile(), 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, false
 	)
 {
 	encounter_name[0] = 0;

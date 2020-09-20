@@ -8,10 +8,14 @@ class Corpse;
 class Group;
 class Mob;
 class Raid;
-struct Item_Struct;
 struct MercTemplate;
 struct NPCType;
 struct NewSpawn_Struct;
+
+namespace EQ
+{
+	struct ItemData;
+}
 
 #define MAXMERCS 1
 #define TANK 1
@@ -25,18 +29,6 @@ struct NewSpawn_Struct;
 #define NOT_SUSPENDED_TIME 0
 
 const int MercAISpellRange = 100; // TODO: Write a method that calcs what the merc's spell range is based on spell, equipment, AA, whatever and replace this
-
-enum MercStanceType {
-	MercStancePassive = 1,
-	MercStanceBalanced,
-	MercStanceEfficient,
-	MercStanceReactive,
-	MercStanceAggressive,
-	MercStanceAssist,
-	MercStanceBurn,
-	MercStanceEfficient2,
-	MercStanceBurnAE
-};
 
 struct MercSpell {
 	uint16 spellid; // <= 0 = no spell
@@ -60,9 +52,9 @@ public:
 	virtual ~Merc();
 
 	//abstract virtual function implementations requird by base abstract class
-	virtual bool Death(Mob* killerMob, int32 damage, uint16 spell_id, SkillUseTypes attack_skill);
-	virtual void Damage(Mob* from, int32 damage, uint16 spell_id, SkillUseTypes attack_skill, bool avoidable = true, int8 buffslot = -1, bool iBuffTic = false);
-	virtual bool Attack(Mob* other, int Hand = MainPrimary, bool FromRiposte = false, bool IsStrikethrough = false,
+	virtual bool Death(Mob* killerMob, int32 damage, uint16 spell_id, EQ::skills::SkillType attack_skill);
+	virtual void Damage(Mob* from, int32 damage, uint16 spell_id, EQ::skills::SkillType attack_skill, bool avoidable = true, int8 buffslot = -1, bool iBuffTic = false, eSpecialAttacks special = eSpecialAttacks::None);
+	virtual bool Attack(Mob* other, int Hand = EQ::invslot::slotPrimary, bool FromRiposte = false, bool IsStrikethrough = false,
 	bool IsFromSpell = false, ExtraAttackOptions *opts = nullptr);
 	virtual bool HasRaid() { return false; }
 	virtual bool HasGroup() { return (GetGroup() ? true : false); }
@@ -74,8 +66,8 @@ public:
 	virtual void AI_Stop();
 	virtual void AI_Process();
 
-	//virtual bool AICastSpell(Mob* tar, int8 iChance, int16 iSpellTypes);
-	virtual bool AICastSpell(int8 iChance, int32 iSpellTypes);
+	//virtual bool AICastSpell(Mob* tar, int8 iChance, uint32 iSpellTypes);
+	virtual bool AICastSpell(int8 iChance, uint32 iSpellTypes);
 	virtual bool AIDoSpellCast(uint16 spellid, Mob* tar, int32 mana_cost, uint32* oDontDoAgainBefore = 0);
 	virtual bool AI_EngagedCastCheck();
 	//virtual bool AI_PursueCastCheck();
@@ -93,7 +85,7 @@ public:
 	// Merc Spell Casting Methods
 	virtual int32 GetActSpellCasttime(uint16 spell_id, int32 casttime);
 	virtual int32 GetActSpellCost(uint16 spell_id, int32 cost);
-	int8 GetChanceToCastBySpellType(int16 spellType);
+	int8 GetChanceToCastBySpellType(uint32 spellType);
 	void SetSpellRecastTimer(uint16 timer_id, uint16 spellid, uint32 recast_delay);
 	void SetDisciplineRecastTimer(uint16 timer_id, uint16 spellid, uint32 recast_delay);
 	void SetSpellTimeCanCast(uint16 spellid, uint32 recast_delay);
@@ -104,8 +96,8 @@ public:
 	static int32 GetDisciplineRemainingTime(Merc *caster, uint16 timer_id);
 	static std::list<MercSpell> GetMercSpellsForSpellEffect(Merc* caster, int spellEffect);
 	static std::list<MercSpell> GetMercSpellsForSpellEffectAndTargetType(Merc* caster, int spellEffect, SpellTargetType targetType);
-	static std::list<MercSpell> GetMercSpellsBySpellType(Merc* caster, int spellType);
-	static MercSpell GetFirstMercSpellBySpellType(Merc* caster, int spellType);
+	static std::list<MercSpell> GetMercSpellsBySpellType(Merc* caster, uint32 spellType);
+	static MercSpell GetFirstMercSpellBySpellType(Merc* caster, uint32 spellType);
 	static MercSpell GetFirstMercSpellForSingleTargetHeal(Merc* caster);
 	static MercSpell GetMercSpellBySpellID(Merc* caster, uint16 spellid);
 	static MercSpell GetBestMercSpellForVeryFastHeal(Merc* caster);
@@ -171,16 +163,16 @@ public:
 	uint8 GetTierID() { return _TierID; }
 	uint32 GetCostFormula() { return _CostFormula; }
 	uint32 GetMercNameType() { return _NameType; }
-	uint32 GetStance() { return _currentStance; }
+	EQ::constants::StanceType GetStance() { return _currentStance; }
 	int GetHatedCount() { return _hatedCount; }
 
 	inline const uint8 GetClientVersion() const { return _OwnerClientVersion; }
 
 	virtual void SetTarget(Mob* mob);
-	bool HasSkill(SkillUseTypes skill_id) const;
-	bool CanHaveSkill(SkillUseTypes skill_id) const;
-	uint16 MaxSkill(SkillUseTypes skillid, uint16 class_, uint16 level) const;
-	inline uint16 MaxSkill(SkillUseTypes skillid) const { return MaxSkill(skillid, GetClass(), GetLevel()); }
+	bool HasSkill(EQ::skills::SkillType skill_id) const;
+	bool CanHaveSkill(EQ::skills::SkillType skill_id) const;
+	uint16 MaxSkill(EQ::skills::SkillType skillid, uint16 class_, uint16 level) const;
+	inline uint16 MaxSkill(EQ::skills::SkillType skillid) const { return MaxSkill(skillid, GetClass(), GetLevel()); }
 	virtual void DoClassAttacks(Mob *target);
 	void CheckHateList();
 	bool CheckTaunt();
@@ -192,7 +184,7 @@ public:
 	virtual void ScaleStats(int scalepercent, bool setmax = false);
 	virtual void CalcBonuses();
 	int32 GetEndurance() const {return cur_end;} //This gets our current endurance
-	inline virtual int32 GetAC() const { return AC; }
+	inline uint8 GetEndurancePercent() { return (uint8)((float)cur_end / (float)max_end * 100.0f); }
 	inline virtual int32 GetATK() const { return ATK; }
 	inline virtual int32 GetATKBonus() const { return itembonuses.ATK + spellbonuses.ATK; }
 	int32 GetRawACNoShield(int &shield_ac) const;
@@ -246,7 +238,7 @@ public:
 	inline virtual int32 GetStringMod() const { return itembonuses.stringedMod; }
 	inline virtual int32 GetWindMod() const { return itembonuses.windMod; }
 
-	inline virtual int32 GetDelayDeath() const { return aabonuses.DelayDeath + spellbonuses.DelayDeath + itembonuses.DelayDeath + 11; }
+	inline virtual int32 GetDelayDeath() const { return aabonuses.DelayDeath + spellbonuses.DelayDeath + itembonuses.DelayDeath; }
 
 	// "SET" Class Methods
 	void SetMercData (uint32 templateID );
@@ -261,7 +253,7 @@ public:
 	void SetMercNameType( uint8 nametype ) { _NameType = nametype; }
 	void SetClientVersion(uint8 clientVersion) { _OwnerClientVersion = clientVersion; }
 	void SetSuspended(bool suspended) { _suspended = suspended; }
-	void SetStance( uint32 stance ) { _currentStance = stance; }
+	void SetStance( EQ::constants::StanceType stance ) { _currentStance = stance; }
 	void SetHatedCount( int count ) { _hatedCount = count; }
 
 	void Sit();
@@ -278,7 +270,7 @@ public:
 
 protected:
 	void CalcItemBonuses(StatBonuses* newbon);
-	void AddItemBonuses(const Item_Struct *item, StatBonuses* newbon);
+	void AddItemBonuses(const EQ::ItemData *item, StatBonuses* newbon);
 	int CalcRecommendedLevelBonus(uint8 level, uint8 reclevel, int basestat);
 
 	int16 GetFocusEffect(focusType type, uint16 spell_id);
@@ -286,8 +278,10 @@ protected:
 	std::vector<MercSpell> merc_spells;
 	std::map<uint32,MercTimer> timers;
 
-	uint16 skills[HIGHEST_SKILL+1];
-	uint32 equipment[EmuConstants::EQUIPMENT_SIZE]; //this is an array of item IDs
+	Timer evade_timer; // can be moved to pTimers at some point
+
+	uint16 skills[EQ::skills::HIGHEST_SKILL + 1];
+	uint32 equipment[EQ::invslot::EQUIPMENT_COUNT]; //this is an array of item IDs
 	uint16 d_melee_texture1; //this is an item Material value
 	uint16 d_melee_texture2; //this is an item Material value (offhand)
 	uint8 prim_melee_type; //Sets the Primary Weapon attack message and animation
@@ -379,9 +373,9 @@ private:
 	uint8 _CostFormula;
 	uint8 _NameType;
 	uint8 _OwnerClientVersion;
-	uint32 _currentStance;
+	EQ::constants::StanceType _currentStance;
 
-	Inventory m_inv;
+	EQ::InventoryProfile m_inv;
 	int32 max_end;
 	int32 cur_end;
 	bool _medding;

@@ -132,7 +132,7 @@ void EQApplicationPacket::build_header_dump(char *buffer) const
 #ifdef STATIC_OPCODE
 	sprintf(buffer, "[OpCode 0x%04x Size=%u]\n", emu_opcode,size);
 #else
-	sprintf(buffer, "[OpCode %s Size=%u]",OpcodeManager::EmuToName(emu_opcode),size);
+	sprintf(buffer, "[OpCode %s(0x%04x) Size=%u]",OpcodeManager::EmuToName(emu_opcode), GetProtocolOpcode(), size);
 #endif
 }
 
@@ -260,7 +260,7 @@ bool EQProtocolPacket::combine(const EQProtocolPacket *rhs)
 {
 bool result=false;
 	if (opcode==OP_Combined && size+rhs->size+5<256) {
-		unsigned char *tmpbuffer=new unsigned char [size+rhs->size+3];
+		auto tmpbuffer = new unsigned char[size + rhs->size + 3];
 		memcpy(tmpbuffer,pBuffer,size);
 		uint32 offset=size;
 		tmpbuffer[offset++]=rhs->Size();
@@ -270,7 +270,7 @@ bool result=false;
 		pBuffer=tmpbuffer;
 		result=true;
 	} else if (size+rhs->size+7<256) {
-		unsigned char *tmpbuffer=new unsigned char [size+rhs->size+6];
+		auto tmpbuffer = new unsigned char[size + rhs->size + 6];
 		uint32 offset=0;
 		tmpbuffer[offset++]=Size();
 		offset+=serialize(tmpbuffer+offset);
@@ -457,7 +457,7 @@ EQApplicationPacket *EQApplicationPacket::Copy() const {
 }
 
 EQRawApplicationPacket *EQProtocolPacket::MakeAppPacket() const {
-	EQRawApplicationPacket *res = new EQRawApplicationPacket(opcode, pBuffer, size);
+	auto res = new EQRawApplicationPacket(opcode, pBuffer, size);
 	res->copyInfo(this);
 	return(res);
 }

@@ -1,5 +1,5 @@
-/*	EQEMu: Everquest Server Emulator
-	Copyright (C) 2001-2002 EQEMu Development Team (http://eqemu.org)
+/*	EQ Everquest Server Emulator
+	Copyright (C) 2001-2002 EQ:: Development Team (http://EQ::.org)
 
 	This program is free software; you can redistribute it and/or modify
 	it under the terms of the GNU General Public License as published by
@@ -20,9 +20,9 @@
 
 #include <string>
 
-//#include "../common/eq_stream.h"
 #include "../common/linked_list.h"
 #include "../common/timer.h"
+#include "../common/inventory_profile.h"
 //#include "zoneserver.h"
 
 #include "../common/eq_packet_structs.h"
@@ -45,7 +45,7 @@ public:
 	void	SendMembership();
 	void	SendMembershipSettings();
 	void	EnterWorld(bool TryBootup = true);
-	void	ZoneUnavail();
+	void	TellClientZoneUnavailable();
 	void	QueuePacket(const EQApplicationPacket* app, bool ack_req = true);
 	void	Clearance(int8 response);
 	void	SendGuildList();
@@ -58,9 +58,9 @@ public:
 
 	inline uint32		GetIP()				{ return ip; }
 	inline uint16		GetPort()			{ return port; }
-	inline uint32		GetZoneID()			{ return zoneID; }
-	inline uint32		GetInstanceID()		{ return instanceID; }
-	inline uint32		WaitingForBootup()	{ return pwaitingforbootup; }
+	inline uint32		GetZoneID()			{ return zone_id; }
+	inline uint32		GetInstanceID()		{ return instance_id; }
+	inline uint32		WaitingForBootup()	{ return zone_waiting_for_bootup; }
 	inline const char *	GetAccountName()	{ if (cle) { return cle->AccountName(); } return "NOCLE"; }
 	inline int16		GetAdmin()			{ if (cle) { return cle->Admin(); } return 0; }
 	inline uint32		GetAccountID()		{ if (cle) { return cle->AccountID(); } return 0; }
@@ -69,22 +69,30 @@ public:
 	inline const char*	GetLSKey()			{ if (cle) { return cle->GetLSKey(); } return "NOKEY"; }
 	inline uint32		GetCharID()			{ return charid; }
 	inline const char*	GetCharName()		{ return char_name; }
+	inline EQ::versions::ClientVersion	GetClientVersion()	{ return m_ClientVersion; }
 	inline ClientListEntry* GetCLE()		{ return cle; }
 	inline void			SetCLE(ClientListEntry* iCLE)			{ cle = iCLE; }
+	bool StoreCharacter(
+		uint32 account_id,
+		PlayerProfile_Struct *p_player_profile_struct,
+		EQ::InventoryProfile *p_inventory_profile
+	);
+
 private:
 
 	uint32	ip;
 	uint16	port;
 	uint32	charid;
 	char	char_name[64];
-	uint32	zoneID;
-	uint32	instanceID;
-	bool	pZoning;
+	uint32	zone_id;
+	uint32	instance_id;
+	bool	is_player_zoning;
 	Timer	autobootup_timeout;
-	uint32	pwaitingforbootup;
+	uint32	zone_waiting_for_bootup;
+	bool	enter_world_triggered;
 
 	bool StartInTutorial;
-	ClientVersion m_ClientVersion;
+	EQ::versions::ClientVersion m_ClientVersion;
 	uint32 m_ClientVersionBit;
 	bool OPCharCreate(char *name, CharCreate_Struct *cc);
 
@@ -94,10 +102,9 @@ private:
 	void SetClassLanguages(PlayerProfile_Struct *pp);
 
 	ClientListEntry* cle;
-	Timer	CLE_keepalive_timer;
 	Timer	connect;
 	bool firstlogin;
-	bool seencharsel;
+	bool seen_character_select;
 	bool realfirstlogin;
 
 	bool HandlePacket(const EQApplicationPacket *app);

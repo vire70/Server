@@ -31,6 +31,12 @@ public:
 	int CheckNPCFactionAlly(int faction);
 	void AddItem(int item_id, int charges);
 	void AddItem(int item_id, int charges, bool equip);
+	void AddItem(int item_id, int charges, bool equip, int aug1);
+	void AddItem(int item_id, int charges, bool equip, int aug1, int aug2);
+	void AddItem(int item_id, int charges, bool equip, int aug1, int aug2, int aug3);
+	void AddItem(int item_id, int charges, bool equip, int aug1, int aug2, int aug3, int aug4);
+	void AddItem(int item_id, int charges, bool equip, int aug1, int aug2, int aug3, int aug4, int aug5);
+	void AddItem(int item_id, int charges, bool equip, int aug1, int aug2, int aug3, int aug4, int aug5, int aug6);
 	void AddLootTable();
 	void AddLootTable(int id);
 	void RemoveItem(int item_id);
@@ -67,6 +73,7 @@ public:
 	void SetPetSpellID(int id);
 	uint32 GetMaxDamage(int level);
 	void SetTaunting(bool t);
+	bool IsTaunting();
 	void PickPocket(Lua_Client thief);
 	void StartSwarmTimer(uint32 duration);
 	void DoClassAttacks(Lua_Mob target);
@@ -81,11 +88,16 @@ public:
 	void PauseWandering(int pause_time);
 	void MoveTo(float x, float y, float z, float h, bool save);
 	void NextGuardPosition();
-	void SaveGuardSpot();
-	void SaveGuardSpot(bool clear);
+	void SaveGuardSpot(float x, float y, float z, float heading);
 	bool IsGuarding();
 	void AI_SetRoambox(float dist, float max_x, float min_x, float max_y, float min_y);
 	void AI_SetRoambox(float dist, float max_x, float min_x, float max_y, float min_y, uint32 delay, uint32 mindelay);
+	void SetFollowID(int id);
+	void SetFollowDistance(int dist);
+	void SetFollowCanRun(bool v);
+	int GetFollowID();
+	int GetFollowDistance();
+	bool GetFollowCanRun();
 	int GetNPCSpellsID();
 	int GetSpawnPointID();
 	float GetSpawnPointX();
@@ -104,6 +116,7 @@ public:
 	void SetSwarmTarget(int target);
 	void ModifyNPCStat(const char *stat, const char *value);
 	void AddAISpell(int priority, int spell_id, int type, int mana_cost, int recast_delay, int resist_adjust);
+	void AddAISpell(int priority, int spell_id, int type, int mana_cost, int recast_delay, int resist_adjust, int min_hp, int max_hp);
 	void RemoveAISpell(int spell_id);
 	void SetSpellFocusDMG(int focus);
 	void SetSpellFocusHeal(int focus);
@@ -111,13 +124,18 @@ public:
 	int GetSpellFocusHeal();
 	float GetSlowMitigation();
 	float GetAttackSpeed();
+	int GetAttackDelay();
 	int GetAccuracyRating();
 	int GetSpawnKillCount();
 	int GetScore();
 	void MerchantOpenShop();
 	void MerchantCloseShop();
-	void SetMerchantProbability(uint8 amt);
-	uint8 GetMerchantProbability();
+	int GetRawAC();
+	int GetAvoidanceRating();
+	void SetSimpleRoamBox(float box_size);
+	void SetSimpleRoamBox(float box_size, float move_distance);
+	void SetSimpleRoamBox(float box_size, float move_distance, int move_delay);
+	void RecalculateSkills();
 };
 
 #endif

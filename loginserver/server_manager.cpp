@@ -1,127 +1,110 @@
-/*	EQEMu: Everquest Server Emulator
-	Copyright (C) 2001-2010 EQEMu Development Team (http://eqemulator.net)
+/**
+ * EQEmulator: Everquest Server Emulator
+ * Copyright (C) 2001-2019 EQEmulator Development Team (https://github.com/EQEmu/Server)
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation; version 2 of the License.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY except by those people which sell it, which
+ * are required to give you total support for your newly bought product;
+ * without even the implied warranty of MERCHANTABILITY or FITNESS FOR
+ * A PARTICULAR PURPOSE. See the GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
+ *
+ */
 
-	This program is free software; you can redistribute it and/or modify
-	it under the terms of the GNU General Public License as published by
-	the Free Software Foundation; version 2 of the License.
-
-	This program is distributed in the hope that it will be useful,
-	but WITHOUT ANY WARRANTY except by those people which sell it, which
-	are required to give you total support for your newly bought product;
-	without even the implied warranty of MERCHANTABILITY or FITNESS FOR
-	A PARTICULAR PURPOSE. See the GNU General Public License for more details.
-
-	You should have received a copy of the GNU General Public License
-	along with this program; if not, write to the Free Software
-	Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
-*/
 #include "server_manager.h"
 #include "login_server.h"
-#include "error_log.h"
 #include "login_structures.h"
 #include <stdlib.h>
 
-extern ErrorLog *server_log;
+#include "../common/eqemu_logsys.h"
+#include "../common/ip_util.h"
+
 extern LoginServer server;
-extern bool run_server;
+extern bool        run_server;
 
 ServerManager::ServerManager()
 {
-	char error_buffer[TCPConnection_ErrorBufferSize];
+	int listen_port = server.config.GetVariableInt("general", "listen_port", 5998);
 
-	int listen_port = atoi(server.config->GetVariable("options", "listen_port").c_str());
-	tcps = new EmuTCPServer(listen_port, true);
-	if(tcps->Open(listen_port, error_buffer))
-	{
-		server_log->Log(log_network, "ServerManager listening on port %u", listen_port);
-	}
-	else
-	{
-		server_log->Log(log_error, "ServerManager fatal error opening port on %u: %s", listen_port, error_buffer);
-		run_server = false;
-	}
+	server_connection.reset(new EQ::Net::ServertalkServer());
+	EQ::Net::ServertalkServerOptions opts;
+	opts.port = listen_port;
+	opts.ipv6 = false;
+	server_connection->Listen(opts);
+
+	LogInfo("Loginserver now listening on port [{0}]", listen_port);
+
+	server_connection->OnConnectionIdentified(
+		"World", [this](std::shared_ptr<EQ::Net::ServertalkServerConnection> world_connection) {
+			LogInfo(
+				"New World Server connection from {0}:{1}",
+				world_connection->Handle()->RemoteIP(),
+				world_connection->Handle()->RemotePort()
+			);
+
+			auto iter = world_servers.begin();
+			while (iter != world_servers.end()) {
+				if ((*iter)->GetConnection()->Handle()->RemoteIP().compare(world_connection->Handle()->RemoteIP()) ==
+					0 &&
+					(*iter)->GetConnection()->Handle()->RemotePort() == world_connection->Handle()->RemotePort()) {
+
+					LogInfo(
+						"World server already existed for {0}:{1}, removing existing connection.",
+						world_connection->Handle()->RemoteIP(),
+						world_connection->Handle()->RemotePort()
+					);
+
+					world_servers.erase(iter);
+					break;
+				}
+
+				++iter;
+			}
+
+			world_servers.push_back(std::unique_ptr<WorldServer>(new WorldServer(world_connection)));
+		}
+	);
+
+	server_connection->OnConnectionRemoved(
+		"World", [this](std::shared_ptr<EQ::Net::ServertalkServerConnection> c) {
+			auto iter = world_servers.begin();
+			while (iter != world_servers.end()) {
+				if ((*iter)->GetConnection()->GetUUID() == c->GetUUID()) {
+					LogInfo(
+						"World server {0} has been disconnected, removing.",
+						(*iter)->GetServerLongName()
+					);
+					world_servers.erase(iter);
+					return;
+				}
+
+				++iter;
+			}
+		}
+	);
 }
 
-ServerManager::~ServerManager()
+ServerManager::~ServerManager() = default;
+
+/**
+ * @param ip_address
+ * @param port
+ * @return
+ */
+WorldServer *ServerManager::GetServerByAddress(const std::string &ip_address, int port)
 {
-	if(tcps)
-	{
-		tcps->Close();
-		delete tcps;
-	}
-}
-
-void ServerManager::Process()
-{
-	ProcessDisconnect();
-	EmuTCPConnection *tcp_c = nullptr;
-	while(tcp_c = tcps->NewQueuePop())
-	{
-		in_addr tmp;
-		tmp.s_addr = tcp_c->GetrIP();
-		server_log->Log(log_network, "New world server connection from %s:%d", inet_ntoa(tmp), tcp_c->GetrPort());
-
-		WorldServer *cur = GetServerByAddress(tcp_c->GetrIP());
-		if(cur)
-		{
-			server_log->Log(log_network, "World server already existed for %s, removing existing connection and updating current.", inet_ntoa(tmp));
-			cur->GetConnection()->Free();
-			cur->SetConnection(tcp_c);
-			cur->Reset();
-		}
-		else
-		{
-			WorldServer *w = new WorldServer(tcp_c);
-			world_servers.push_back(w);
-		}
-	}
-
-	list<WorldServer*>::iterator iter = world_servers.begin();
-	while(iter != world_servers.end())
-	{
-		if((*iter)->Process() == false)
-		{
-			server_log->Log(log_world, "World server %s had a fatal error and had to be removed from the login.", (*iter)->GetLongName().c_str());
-			delete (*iter);
-			iter = world_servers.erase(iter);
-		}
-		else
-		{
-			++iter;
-		}
-	}
-}
-
-void ServerManager::ProcessDisconnect()
-{
-	list<WorldServer*>::iterator iter = world_servers.begin();
-	while(iter != world_servers.end())
-	{
-		EmuTCPConnection *c = (*iter)->GetConnection();
-		if(!c->Connected())
-		{
-			in_addr tmp;
-			tmp.s_addr = c->GetrIP();
-			server_log->Log(log_network, "World server disconnected from the server, removing server and freeing connection.");
-			c->Free();
-			delete (*iter);
-			iter = world_servers.erase(iter);
-		}
-		else
-		{
-			++iter;
-		}
-	}
-}
-
-WorldServer* ServerManager::GetServerByAddress(unsigned int address)
-{
-	list<WorldServer*>::iterator iter = world_servers.begin();
-	while(iter != world_servers.end())
-	{
-		if((*iter)->GetConnection()->GetrIP() == address)
-		{
-			return (*iter);
+	auto iter = world_servers.begin();
+	while (iter != world_servers.end()) {
+		if ((*iter)->GetConnection()->Handle()->RemoteIP() == ip_address &&
+			(*iter)->GetConnection()->Handle()->RemotePort()) {
+			return (*iter).get();
 		}
 		++iter;
 	}
@@ -129,136 +112,154 @@ WorldServer* ServerManager::GetServerByAddress(unsigned int address)
 	return nullptr;
 }
 
-EQApplicationPacket *ServerManager::CreateServerListPacket(Client *c)
+/**
+ * @param client
+ * @param sequence
+ * @return
+ */
+EQApplicationPacket *ServerManager::CreateServerListPacket(Client *client, uint32 sequence)
 {
-	unsigned int packet_size = sizeof(ServerListHeader_Struct);
+	unsigned int packet_size  = sizeof(ServerListHeader_Struct);
 	unsigned int server_count = 0;
-	in_addr in;
-	in.s_addr = c->GetConnection()->GetRemoteIP();
-	string client_ip = inet_ntoa(in);
+	in_addr      in{};
+	in.s_addr = client->GetConnection()->GetRemoteIP();
+	std::string client_ip = inet_ntoa(in);
 
-	list<WorldServer*>::iterator iter = world_servers.begin();
-	while(iter != world_servers.end())
-	{
-		if((*iter)->IsAuthorized() == false)
-		{
+	LogDebug("ServerManager::CreateServerListPacket via client address [{0}]", client_ip);
+
+	auto iter = world_servers.begin();
+	while (iter != world_servers.end()) {
+		if (!(*iter)->IsAuthorized()) {
+			LogDebug(
+				"ServerManager::CreateServerListPacket | Server [{0}] via IP [{1}] is not authorized to be listed",
+				(*iter)->GetServerLongName(),
+				(*iter)->GetConnection()->Handle()->RemoteIP()
+			);
 			++iter;
 			continue;
 		}
 
-		in.s_addr = (*iter)->GetConnection()->GetrIP();
-		string world_ip = inet_ntoa(in);
+		std::string world_ip = (*iter)->GetConnection()->Handle()->RemoteIP();
+		if (world_ip == client_ip) {
+			packet_size += (*iter)->GetServerLongName().size() + (*iter)->GetLocalIP().size() + 24;
 
-		if(world_ip.compare(client_ip) == 0)
-		{
-			packet_size += (*iter)->GetLongName().size() + (*iter)->GetLocalIP().size() + 24;
+			LogDebug(
+				"CreateServerListPacket | Building list entry | Client [{0}] IP [{1}] Server Long Name [{2}] Server IP [{3}] (Local)",
+				client->GetAccountName(),
+				client_ip,
+				(*iter)->GetServerLongName(),
+				(*iter)->GetLocalIP()
+			);
 		}
-		else if(client_ip.find(server.options.GetLocalNetwork()) != string::npos)
-		{
-			packet_size += (*iter)->GetLongName().size() + (*iter)->GetLocalIP().size() + 24;
+		else if (IpUtil::IsIpInPrivateRfc1918(client_ip)) {
+			packet_size += (*iter)->GetServerLongName().size() + (*iter)->GetLocalIP().size() + 24;
+
+			LogDebug(
+				"CreateServerListPacket | Building list entry | Client [{0}] IP [{1}] Server Long Name [{2}] Server IP [{3}] (Local)",
+				client->GetAccountName(),
+				client_ip,
+				(*iter)->GetServerLongName(),
+				(*iter)->GetLocalIP()
+			);
 		}
-		else
-		{
-			packet_size += (*iter)->GetLongName().size() + (*iter)->GetRemoteIP().size() + 24;
+		else {
+			packet_size += (*iter)->GetServerLongName().size() + (*iter)->GetRemoteIP().size() + 24;
+
+			LogDebug(
+				"CreateServerListPacket | Building list entry | Client [{0}] IP [{1}] Server Long Name [{2}] Server IP [{3}] (Remote)",
+				client->GetAccountName(),
+				client_ip,
+				(*iter)->GetServerLongName(),
+				(*iter)->GetRemoteIP()
+			);
 		}
 
 		server_count++;
 		++iter;
 	}
 
-	EQApplicationPacket *outapp = new EQApplicationPacket(OP_ServerListResponse, packet_size);
-	ServerListHeader_Struct *sl = (ServerListHeader_Struct*)outapp->pBuffer;
-	sl->Unknown1 = 0x00000004;
-	sl->Unknown2 = 0x00000000;
-	sl->Unknown3 = 0x01650000;
+	auto *outapp      = new EQApplicationPacket(OP_ServerListResponse, packet_size);
+	auto *server_list = (ServerListHeader_Struct *) outapp->pBuffer;
+
+	server_list->Unknown1 = sequence;
+	server_list->Unknown2 = 0x00000000;
+	server_list->Unknown3 = 0x01650000;
+
 	/**
 	* Not sure what this is but it should be noted setting it to
 	* 0xFFFFFFFF crashes the client so: don't do that.
 	*/
-	sl->Unknown4 = 0x00000000;
-	sl->NumberOfServers = server_count;
+	server_list->Unknown4        = 0x00000000;
+	server_list->NumberOfServers = server_count;
 
-	unsigned char *data_ptr = outapp->pBuffer;
-	data_ptr += sizeof(ServerListHeader_Struct);
+	unsigned char *data_pointer = outapp->pBuffer;
+	data_pointer += sizeof(ServerListHeader_Struct);
 
 	iter = world_servers.begin();
-	while(iter != world_servers.end())
-	{
-		if((*iter)->IsAuthorized() == false)
-		{
+	while (iter != world_servers.end()) {
+		if (!(*iter)->IsAuthorized()) {
 			++iter;
 			continue;
 		}
 
-		in.s_addr = (*iter)->GetConnection()->GetrIP();
-		string world_ip = inet_ntoa(in);
-		if(world_ip.compare(client_ip) == 0)
-		{
-			memcpy(data_ptr, (*iter)->GetLocalIP().c_str(), (*iter)->GetLocalIP().size());
-			data_ptr += ((*iter)->GetLocalIP().size() + 1);
+		std::string world_ip = (*iter)->GetConnection()->Handle()->RemoteIP();
+		if (world_ip == client_ip) {
+			memcpy(data_pointer, (*iter)->GetLocalIP().c_str(), (*iter)->GetLocalIP().size());
+			data_pointer += ((*iter)->GetLocalIP().size() + 1);
 		}
-		else if(client_ip.find(server.options.GetLocalNetwork()) != string::npos)
-		{
-			memcpy(data_ptr, (*iter)->GetLocalIP().c_str(), (*iter)->GetLocalIP().size());
-			data_ptr += ((*iter)->GetLocalIP().size() + 1);
+		else if (IpUtil::IsIpInPrivateRfc1918(client_ip)) {
+			memcpy(data_pointer, (*iter)->GetLocalIP().c_str(), (*iter)->GetLocalIP().size());
+			data_pointer += ((*iter)->GetLocalIP().size() + 1);
 		}
-		else
-		{
-			memcpy(data_ptr, (*iter)->GetRemoteIP().c_str(), (*iter)->GetRemoteIP().size());
-			data_ptr += ((*iter)->GetRemoteIP().size() + 1);
+		else {
+			memcpy(data_pointer, (*iter)->GetRemoteIP().c_str(), (*iter)->GetRemoteIP().size());
+			data_pointer += ((*iter)->GetRemoteIP().size() + 1);
 		}
 
-		switch((*iter)->GetServerListID())
-		{
-		case 1:
-			{
-				*(unsigned int*)data_ptr = 0x00000030;
+		switch ((*iter)->GetServerListID()) {
+			case 1: {
+				*(unsigned int *) data_pointer = 0x00000030;
 				break;
 			}
-		case 2:
-			{
-				*(unsigned int*)data_ptr = 0x00000009;
+			case 2: {
+				*(unsigned int *) data_pointer = 0x00000009;
 				break;
 			}
-		default:
-			{
-				*(unsigned int*)data_ptr = 0x00000001;
+			default: {
+				*(unsigned int *) data_pointer = 0x00000001;
 			}
 		}
-		data_ptr += 4;
 
-		*(unsigned int*)data_ptr = (*iter)->GetRuntimeID();
-		data_ptr += 4;
+		data_pointer += 4;
 
-		memcpy(data_ptr, (*iter)->GetLongName().c_str(), (*iter)->GetLongName().size());
-		data_ptr += ((*iter)->GetLongName().size() + 1);
+		*(unsigned int *) data_pointer = (*iter)->GetServerId();
+		data_pointer += 4;
 
-		memcpy(data_ptr, "EN", 2);
-		data_ptr += 3;
+		memcpy(data_pointer, (*iter)->GetServerLongName().c_str(), (*iter)->GetServerLongName().size());
+		data_pointer += ((*iter)->GetServerLongName().size() + 1);
 
-		memcpy(data_ptr, "US", 2);
-		data_ptr += 3;
+		memcpy(data_pointer, "EN", 2);
+		data_pointer += 3;
+
+		memcpy(data_pointer, "US", 2);
+		data_pointer += 3;
 
 		// 0 = Up, 1 = Down, 2 = Up, 3 = down, 4 = locked, 5 = locked(down)
-		if((*iter)->GetStatus() < 0)
-		{
-			if((*iter)->GetZonesBooted() == 0)
-			{
-				*(uint32*)data_ptr = 0x01;
+		if ((*iter)->GetStatus() < 0) {
+			if ((*iter)->GetZonesBooted() == 0) {
+				*(uint32 *) data_pointer = 0x01;
 			}
-			else
-			{
-				*(uint32*)data_ptr = 0x04;
+			else {
+				*(uint32 *) data_pointer = 0x04;
 			}
 		}
-		else
-		{
-			*(uint32*)data_ptr = 0x02;
+		else {
+			*(uint32 *) data_pointer = 0x02;
 		}
-		data_ptr += 4;
+		data_pointer += 4;
 
-		*(uint32*)data_ptr = (*iter)->GetPlayersOnline();
-		data_ptr += 4;
+		*(uint32 *) data_pointer = (*iter)->GetPlayersOnline();
+		data_pointer += 4;
 
 		++iter;
 	}
@@ -266,49 +267,63 @@ EQApplicationPacket *ServerManager::CreateServerListPacket(Client *c)
 	return outapp;
 }
 
-void ServerManager::SendUserToWorldRequest(unsigned int server_id, unsigned int client_account_id)
+/**
+ * @param server_id
+ * @param client_account_id
+ * @param client_loginserver
+ */
+void ServerManager::SendUserToWorldRequest(
+	unsigned int server_id,
+	unsigned int client_account_id,
+	const std::string &client_loginserver
+)
 {
-	list<WorldServer*>::iterator iter = world_servers.begin();
+	auto iter  = world_servers.begin();
 	bool found = false;
-	while(iter != world_servers.end())
-	{
-		if((*iter)->GetRuntimeID() == server_id)
-		{
-			ServerPacket *outapp = new ServerPacket(ServerOP_UsertoWorldReq, sizeof(UsertoWorldRequest_Struct));
-			UsertoWorldRequest_Struct *utwr = (UsertoWorldRequest_Struct*)outapp->pBuffer;
-			utwr->worldid = server_id;
-			utwr->lsaccountid = client_account_id;
-			(*iter)->GetConnection()->SendPacket(outapp);
+	while (iter != world_servers.end()) {
+		if ((*iter)->GetServerId() == server_id) {
+			EQ::Net::DynamicPacket outapp;
+			outapp.Resize(sizeof(UsertoWorldRequest_Struct));
+
+			auto *user_to_world_request = (UsertoWorldRequest_Struct *) outapp.Data();
+			user_to_world_request->worldid     = server_id;
+			user_to_world_request->lsaccountid = client_account_id;
+			strncpy(user_to_world_request->login, &client_loginserver[0], 64);
+			(*iter)->GetConnection()->Send(ServerOP_UsertoWorldReq, outapp);
 			found = true;
 
-			if(server.options.IsDumpInPacketsOn())
-			{
-				DumpPacket(outapp);
+			if (server.options.IsDumpInPacketsOn()) {
+				LogInfo("{0}", outapp.ToString());
 			}
-			delete outapp;
 		}
 		++iter;
 	}
 
-	if(!found && server.options.IsTraceOn())
-	{
-		server_log->Log(log_client_error, "Client requested a user to world but supplied an invalid id of %u.", server_id);
+	if (!found && server.options.IsTraceOn()) {
+		LogError("Client requested a user to world but supplied an invalid id of {0}", server_id);
 	}
 }
 
-bool ServerManager::ServerExists(string l_name, string s_name, WorldServer *ignore)
+/**
+ * @param server_long_name
+ * @param server_short_name
+ * @param ignore
+ * @return
+ */
+bool ServerManager::ServerExists(
+	std::string server_long_name,
+	std::string server_short_name,
+	WorldServer *ignore
+)
 {
-	list<WorldServer*>::iterator iter = world_servers.begin();
-	while(iter != world_servers.end())
-	{
-		if((*iter) == ignore)
-		{
+	auto iter = world_servers.begin();
+	while (iter != world_servers.end()) {
+		if ((*iter).get() == ignore) {
 			++iter;
 			continue;
 		}
 
-		if((*iter)->GetLongName().compare(l_name) == 0 && (*iter)->GetShortName().compare(s_name) == 0)
-		{
+		if ((*iter)->GetServerLongName() == server_long_name && (*iter)->GetServerShortName() == server_short_name) {
 			return true;
 		}
 
@@ -317,29 +332,39 @@ bool ServerManager::ServerExists(string l_name, string s_name, WorldServer *igno
 	return false;
 }
 
-void ServerManager::DestroyServerByName(string l_name, string s_name, WorldServer *ignore)
+/**
+ * @param server_long_name
+ * @param server_short_name
+ * @param ignore
+ */
+void ServerManager::DestroyServerByName(
+	std::string server_long_name,
+	std::string server_short_name,
+	WorldServer *ignore
+)
 {
-	list<WorldServer*>::iterator iter = world_servers.begin();
-	while(iter != world_servers.end())
-	{
-		if((*iter) == ignore)
-		{
+	auto iter = world_servers.begin();
+	while (iter != world_servers.end()) {
+		if ((*iter).get() == ignore) {
 			++iter;
+			continue;
 		}
 
-		if((*iter)->GetLongName().compare(l_name) == 0 && (*iter)->GetShortName().compare(s_name) == 0)
-		{
-			EmuTCPConnection *c = (*iter)->GetConnection();
-			if(c->Connected())
-			{
-				c->Disconnect();
-			}
-			c->Free();
-			delete (*iter);
+		if ((*iter)->GetServerLongName().compare(server_long_name) == 0 &&
+			(*iter)->GetServerShortName().compare(server_short_name) == 0) {
+			(*iter)->GetConnection()->Handle()->Disconnect();
 			iter = world_servers.erase(iter);
+			continue;
 		}
 
 		++iter;
 	}
 }
 
+/**
+ * @return
+ */
+const std::list<std::unique_ptr<WorldServer>> &ServerManager::getWorldServers() const
+{
+	return world_servers;
+}

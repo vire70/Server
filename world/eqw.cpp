@@ -1,5 +1,5 @@
 /*	EQEMu: Everquest Server Emulator
-	Copyright (C) 2001-2006 EQEMu Development Team (http://eqemulator.net)
+	Copyright (C) 2001-2016 EQEMu Development Team (http://eqemulator.net)
 
 	This program is free software; you can redistribute it and/or modify
 	it under the terms of the GNU General Public License as published by
@@ -188,14 +188,14 @@ std::map<std::string,std::string> EQW::GetPlayerDetails(Const_char *char_name) {
 	res["character"] = cle->name();
 	res["account"] = cle->AccountName();
 	res["account_id"] = itoa(cle->AccountID());
-	res["location_short"] = cle->zone()?database.GetZoneName(cle->zone()):"No Zone";
+	res["location_short"] = cle->zone()?ZoneName(cle->zone()):"No Zone";
 	res["location_long"] = res["location_short"];
 	res["location_id"] = itoa(cle->zone());
 	res["ip"] = long2ip(cle->GetIP());
 	res["level"] = itoa(cle->level());
-	res["race"] = GetRaceName(cle->race());
+	res["race"] = GetRaceIDName(cle->race());
 	res["race_id"] = itoa(cle->race());
-	res["class"] = GetEQClassName(cle->class_());
+	res["class"] = GetClassIDName(cle->class_());
 	res["class_id"] = itoa(cle->class_());
 	res["guild_id"] = itoa(cle->GuildID());
 	res["guild"] = guild_mgr.GetGuildName(cle->GuildID());
@@ -260,84 +260,6 @@ EQLConfig * EQW::GetLauncher(Const_char *launcher_name) {
 void EQW::CreateLauncher(Const_char *launcher_name, int dynamic_count) {
 	launcher_list.CreateLauncher(launcher_name, dynamic_count);
 }
-
-void EQW::LSReconnect() {
-	#ifdef _WINDOWS
-		_beginthread(AutoInitLoginServer, 0, nullptr);
-	#else
-		pthread_t thread;
-		pthread_create(&thread, nullptr, &AutoInitLoginServer, nullptr);
-	#endif
-	RunLoops = true;
-	Log.Out(Logs::Detail, Logs::World_Server,"Login Server Reconnect manually restarted by Web Tool");
-}
-
-/*EQLConfig * EQW::FindLauncher(Const_char *zone_ref) {
-	return(nullptr);
-}*/
-
-/*
-map<string,string> EQW::GetLaunchersDetails(Const_char *launcher_name) {
-	map<string,string> res;
-
-	LauncherLink *ll = launcher_list.Get(launcher_name);
-	if(ll == nullptr) {
-		res["name"] = launcher_name;
-		res["ip"] = "Not Connected";
-		res["id"] = "0";
-		res["zone_count"] = "0";
-		res["connected"] = "no";
-		return(res);
-	} else {
-		res["name"] = ll->GetName();
-		res["ip"] = long2ip(ll->GetIP());
-		res["id"] = itoa(ll->GetID());
-		res["zone_count"] = itoa(ll->CountZones());
-		res["connected"] = "yes";
-	}
-
-	return(res);
-}
-
-vector<string> EQW::ListLauncherZones(Const_char *launcher_name) {
-	vector<string> list;
-	LauncherLink *ll = launcher_list.Get(launcher_name);
-	if(ll != nullptr) {
-		ll->GetZoneList(list);
-	}
-	return(list);
-}
-
-map<string,string> EQW::GetLauncherZoneDetails(Const_char *launcher_name, Const_char *zone_ref) {
-	map<string,string> res;
-	LauncherLink *ll = launcher_list.Get(launcher_name);
-	if(ll != nullptr) {
-		ll->GetZoneDetails(zone_ref, res);
-	} else {
-		res["error"] = "Launcher Not Found";
-	}
-	return(res);
-}
-
-void EQW::CreateLauncher(Const_char *launcher_name, int dynamic_count) {
-}
-
-bool EQW::BootStaticZone(Const_char *launcher_name, Const_char *short_name) {
-	return(false);
-}
-
-bool EQW::DeleteStaticZone(Const_char *launcher_name, Const_char *short_name) {
-	return(false);
-}
-
-bool EQW::SetDynamicCount(Const_char *launcher_name, int count) {
-	return(false);
-}
-
-int EQW::GetDynamicCount(Const_char *launcher_name) {
-	return(0);
-}
-*/
 
 uint32 EQW::CreateGuild(const char* name, uint32 leader_char_id) {
 	uint32 id = guild_mgr.CreateGuild(name, leader_char_id);

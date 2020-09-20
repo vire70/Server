@@ -39,8 +39,11 @@ public:
 	void Disconnect();
 	bool IsLD();
 	void WorldKick();
+	void SendToGuildHall();
 	bool GetAnon();
 	void Duck();
+	void DyeArmorBySlot(uint8 slot, uint8 red, uint8 green, uint8 blue);
+	void DyeArmorBySlot(uint8 slot, uint8 red, uint8 green, uint8 blue, uint8 use_tint);
 	void Stand();
 	void SetGM(bool v);
 	void SetPVP(bool v);
@@ -63,6 +66,7 @@ public:
 	int GetWeight();
 	uint32 GetEXP();
 	uint32 GetAAExp();
+	uint32 GetAAPercent();
 	uint32 GetTotalSecondsPlayed();
 	void UpdateLDoNPoints(int points, uint32 theme);
 	void SetDeity(int v);
@@ -89,6 +93,12 @@ public:
 	uint32 GetBindZoneID(int index);
 	void MovePC(int zone, float x, float y, float z, float heading);
 	void MovePCInstance(int zone, int instance, float x, float y, float z, float heading);
+	void MoveZone(const char *zone_short_name);
+	void MoveZoneGroup(const char *zone_short_name);
+	void MoveZoneRaid(const char *zone_short_name);
+	void MoveZoneInstance(uint16 instance_id);
+	void MoveZoneInstanceGroup(uint16 instance_id);
+	void MoveZoneInstanceRaid(uint16 instance_id);
 	void ChangeLastName(const char *in);
 	int GetFactionLevel(uint32 char_id, uint32 npc_id, uint32 race, uint32 class_, uint32 deity, uint32 faction, Lua_NPC npc);
 	void SetFactionLevel(uint32 char_id, uint32 npc_id, int char_class, int char_race, int char_deity);
@@ -131,8 +141,11 @@ public:
 	void MemSpell(int spell_id, int slot, bool update_client);
 	void UnmemSpell(int slot);
 	void UnmemSpell(int slot, bool update_client);
+	void UnmemSpellBySpellID(int32 spell_id);
 	void UnmemSpellAll();
 	void UnmemSpellAll(bool update_client);
+	uint16 FindMemmedSpellBySlot(int slot);
+	int MemmedCount();
 	void ScribeSpell(int spell_id, int slot);
 	void ScribeSpell(int spell_id, int slot, bool update_client);
 	void UnscribeSpell(int slot);
@@ -140,11 +153,15 @@ public:
 	void UnscribeSpellAll();
 	void UnscribeSpellAll(bool update_client);
 	void TrainDisc(int itemid);
+	void TrainDiscBySpellID(int32 spell_id);
+	int GetDiscSlotBySpellID(int32 spell_id);
 	void UntrainDisc(int slot);
 	void UntrainDisc(int slot, bool update_client);
 	void UntrainDiscAll();
 	void UntrainDiscAll(bool update_client);
+	bool IsStanding();
 	bool IsSitting();
+	bool IsCrouching();
 	void SetFeigned(bool v);
 	bool GetFeigned();
 	bool AutoSplitEnabled();
@@ -187,6 +204,8 @@ public:
 	void ForageItem(bool guarantee);
 	float CalcPriceMod(Lua_Mob other, bool reverse);
 	void ResetTrade();
+	uint32 GetDisciplineTimer(uint32 timer_id);
+	void ResetDisciplineTimer(uint32 timer_id);
 	bool UseDiscipline(int spell_id, int target_id);
 	int GetCharacterFactionLevel(int faction_id);
 	void SetZoneFlag(int zone_id);
@@ -232,16 +251,19 @@ public:
 	uint32 GetIP();
 	void AddLevelBasedExp(int exp_pct);
 	void AddLevelBasedExp(int exp_pct, int max_level);
+	void AddLevelBasedExp(int exp_pct, int max_level, bool ignore_mods);
 	void IncrementAA(int aa);
 	bool GrantAlternateAdvancementAbility(int aa_id, int points);
 	bool GrantAlternateAdvancementAbility(int aa_id, int points, bool ignore_cost);
 	void MarkSingleCompassLoc(float in_x, float in_y, float in_z);
 	void MarkSingleCompassLoc(float in_x, float in_y, float in_z, int count);
+	void ClearCompassMark();
 	int GetNextAvailableSpellBookSlot();
 	int GetNextAvailableSpellBookSlot(int start);
 	int FindSpellBookSlotBySpellID(int spell_id);
 	void UpdateTaskActivity(int task, int activity, int count);
 	void AssignTask(int task, int npc_id);
+	void AssignTask(int task, int npc_id, bool enforce_level_requirement);
 	void FailTask(int task);
 	bool IsTaskCompleted(int task);
 	bool IsTaskActive(int task);
@@ -255,9 +277,13 @@ public:
 	int GetAggroCount();
 	uint64 GetCarriedMoney();
 	uint64 GetAllMoney();
+	uint32 GetMoney(uint8 type, uint8 subtype);
 	void OpenLFGuildWindow();
+	void NotifyNewTitlesAvailable();
 	void Signal(uint32 id);
 	void AddAlternateCurrencyValue(uint32 currency, int amount);
+	void SetAlternateCurrencyValue(uint32 currency, int amount);
+	int GetAlternateCurrencyValue(uint32 currency);
 	void SendWebLink(const char *site);
 	bool HasSpellScribed(int spell_id);
 	void SetAccountFlag(std::string flag, std::string val);
@@ -289,6 +315,26 @@ public:
 	void QuestReward(Lua_Mob target, uint32 copper, uint32 silver, uint32 gold, uint32 platinum, uint32 itemid);
 	void QuestReward(Lua_Mob target, uint32 copper, uint32 silver, uint32 gold, uint32 platinum, uint32 itemid, uint32 exp);
 	void QuestReward(Lua_Mob target, uint32 copper, uint32 silver, uint32 gold, uint32 platinum, uint32 itemid, uint32 exp, bool faction);
+	void QuestReward(Lua_Mob target, luabind::adl::object reward);
+	bool IsDead();
+	int CalcCurrentWeight();
+	int CalcATK();
+	void FilteredMessage(Mob *sender, uint32 type, int filter, const char* message);
+	void EnableAreaHPRegen(int value);
+	void DisableAreaHPRegen();
+	void EnableAreaManaRegen(int value);
+	void DisableAreaManaRegen();
+	void EnableAreaEndRegen(int value);
+	void DisableAreaEndRegen();
+	void EnableAreaRegens(int value);
+	void DisableAreaRegens();
+
+
+	void SetPrimaryWeaponOrnamentation(uint32 model_id);
+	void SetSecondaryWeaponOrnamentation(uint32 model_id);
+
+	void SetClientMaxLevel(int value);
+	int GetClientMaxLevel();
 };
 
 #endif

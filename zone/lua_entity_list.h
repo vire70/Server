@@ -54,6 +54,7 @@ public:
 	bool IsMobSpawnedByNpcTypeID(int npc_type);
 	Lua_NPC GetNPCByID(int id);
 	Lua_NPC GetNPCByNPCTypeID(int npc_type);
+	Lua_NPC GetNPCBySpawnID(uint32 spawn_id);
 	Lua_Client GetClientByName(const char *name);
 	Lua_Client GetClientByAccID(uint32 acct_id);
 	Lua_Client GetClientByID(int id);
@@ -80,10 +81,11 @@ public:
 	void Message(uint32 guild_dbid, uint32 type, const char *message);
 	void MessageStatus(uint32 guild_dbid, int min_status, uint32 type, const char *message);
 	void MessageClose(Lua_Mob sender, bool skip_sender, float dist, uint32 type, const char *message);
+	void FilteredMessageClose(Lua_Mob sender, bool skip_sender, float dist, uint32 type, int filter, const char *message);
 	void RemoveFromTargets(Lua_Mob mob);
 	void RemoveFromTargets(Lua_Mob mob, bool RemoveFromXTargets);
 	void ReplaceWithTarget(Lua_Mob target, Lua_Mob new_target);
-	void OpenDoorsNear(Lua_NPC opener);
+	void OpenDoorsNear(Lua_Mob opener);
 	std::string MakeNameUnique(const char *name);
 	std::string RemoveNumbers(const char *name);
 	void SignalMobsByNPCID(uint32 npc_id, int signal);
@@ -100,6 +102,7 @@ public:
 	Lua_Client GetRandomClient(float x, float y, float z, float dist, Lua_Client exclude);
 	Lua_Mob_List GetMobList();
 	Lua_Client_List GetClientList();
+	Lua_Client_List GetShuffledClientList();
 	Lua_NPC_List GetNPCList();
 	Lua_Corpse_List GetCorpseList();
 	Lua_Object_List GetObjectList();

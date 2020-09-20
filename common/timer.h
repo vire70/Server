@@ -19,6 +19,7 @@
 #define TIMER_H
 
 #include "types.h"
+#include <chrono>
 
 // Disgrace: for windows compile
 #ifdef _WINDOWS
@@ -39,7 +40,7 @@ public:
 	void Disable();
 	void Start(uint32 set_timer_time=0, bool ChangeResetTimer = true);
 	void SetTimer(uint32 set_timer_time=0);
-	uint32 GetRemainingTime();
+	uint32 GetRemainingTime() const;
 	inline const uint32& GetTimerTime()		{ return timer_time; }
 	inline const uint32& GetSetAtTrigger()	{ return set_at_trigger; }
 	void Trigger();
@@ -63,6 +64,30 @@ private:
 	// Instead of Check() setting the start_time = now,
 	// it it sets it to start_time += timer_time
 	bool	pUseAcurateTiming;
+};
+
+/* Wrapper around chrono to make adding simple time based benching easy
+ * ex:
+ * void foo() {
+ * ...
+ * BenchTimer timer;
+ * ... (expensive work here)
+ * auto dur = timer.elapsed();
+ * std::cout << "foo() took " << dur << seconds" << std::endl;
+ * ...
+ * }
+ * */
+
+struct BenchTimer
+{
+	typedef std::chrono::high_resolution_clock clock;
+
+	BenchTimer() : start_time(clock::now()) {}
+	void reset() { start_time = clock::now(); }
+	// this is seconds
+	double elapsed() { return std::chrono::duration<double> (clock::now() - start_time).count(); }
+private:
+	std::chrono::time_point<std::chrono::high_resolution_clock> start_time;
 };
 
 #endif

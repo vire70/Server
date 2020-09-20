@@ -111,9 +111,6 @@ Zone extensions and features
 //path to where sql logs should be placed
 #define SQL_LOG_PATH "sql_logs/"
 
-//New aggro system to reduce overhead.
-#define REVERSE_AGGRO
-
 //The highest you can #setskill / #setallskill
 #define HIGHEST_CAN_SET_SKILL 400
 
@@ -153,16 +150,17 @@ enum {	//reuse times
 
 enum {	//timer settings, all in milliseconds
 	AImovement_duration = 100,
-	AIthink_duration = 150,
-	AIscanarea_delay = 500,
+	AIthink_duration = 50,
+	AIscanarea_delay = 6000,
 	AIfeignremember_delay = 500,
 	AItarget_check_duration = 500,
-	AIClientScanarea_delay = 750,	//used in REVERSE_AGGRO
+	AI_scan_door_open_interval = 1000,
+	// AIClientScanarea_delay = 750,	//used in REVERSE_AGGRO
 	AIassistcheck_delay = 3000,		//now often a fighting NPC will yell for help
+	AI_check_signal_timer_delay = 500, // How often EVENT_SIGNAL checks are processed
 	ClientProximity_interval = 150,
 	CombatEventTimer_expire = 12000,
 	Tribute_duration = 600000,
-	ZoneTimerResolution = 3,			//sleep time between zone main loop runs (milliseconds)
 	FeignMemoryDuration = 120000, // Duration player must feign death to clear zonewide agro.
 	EnragedTimer = 360000,
 	EnragedDurationTimer = 10000
@@ -212,8 +210,8 @@ enum {	//some random constants
 #define MAX_NPC_FACTIONS 20
 
 //individual faction pool
-#define MAX_PERSONAL_FACTION 1200
-#define MIN_PERSONAL_FACTION -3000
+#define MAX_PERSONAL_FACTION 2000
+#define MIN_PERSONAL_FACTION -2000
 
 //The Level Cap:
 //#define LEVEL_CAP RuleI(Character, MaxLevel)	//hard cap is 127
@@ -221,6 +219,9 @@ enum {	//some random constants
 
 //the square of the maximum range at whihc you could possibly use NPC services (shop, tribute, etc)
 #define USE_NPC_RANGE2 200*200		//arbitrary right now
+
+// Squared range for rampage 75.0 * 75.0 for now
+#define NPC_RAMPAGE_RANGE2 5625.0f
 
 //the formula for experience for killing a mob.
 //level is the only valid variable to use
@@ -231,6 +232,11 @@ enum {	//some random constants
 //Leadership AA experience points
 #define GROUP_EXP_PER_POINT 1000
 #define RAID_EXP_PER_POINT 2000
+
+#define ZONE_CONTROLLER_NPC_ID 10
+
+// Timer to update aggrometer
+#define AGGRO_METER_UPDATE_MS 1000
 
 //Some hard coded statuses from commands and other places:
 enum {
@@ -262,14 +268,19 @@ enum {
 	commandBanPlayers = 100,		//can set bans on players
 	commandChangeDatarate = 201,	//edit client's data rate
 	commandZoneToCoords = 0,		//can #zone with coords
-	commandInterrogateInv = 100		//below this == only log on error state and self-only target dump
+	commandInterrogateInv = 100,	//below this == only log on error state and self-only target dump
+	commandInvSnapshot = 150		//ability to clear/restore snapshots
 };
 
-//default states for logging flag on NPCs and clients (having NPCs on by default is prolly a bad idea)
-#define CLIENT_DEFAULT_LOGGING_ENABLED true
-#define NPC_DEFAULT_LOGGING_ENABLED false
+
+// This is the item ID we use for say links, we use the max that fits in 5 ASCII chars
+#define SAYLINK_ITEM_ID 0xFFFFF
 
 
+// consumption timers for food/drink here instead of rules because the client
+// uses these. Times in ms.
+#define CONSUMPTION_TIMER 46000
+#define CONSUMPTION_MNK_TIMER 92000
 
 /*
 

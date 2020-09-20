@@ -30,11 +30,13 @@ std::map<uint16, const NPCType *> Horse::horse_types;
 LinkedList<NPCType *> horses_auto_delete;
 
 Horse::Horse(Client *_owner, uint16 spell_id, const glm::vec4& position)
- : NPC(GetHorseType(spell_id), nullptr, position, FlyMode3)
+ : NPC(GetHorseType(spell_id), nullptr, position, GravityBehavior::Water)
 {
 	//give the horse its proper name.
 	strn0cpy(name, _owner->GetCleanName(), 55);
 	strcat(name,"`s_Mount00");
+
+	IsHorse = true;
 
 	owner = _owner;
 }
@@ -71,62 +73,62 @@ const NPCType *Horse::BuildHorseType(uint16 spell_id) {
 	const char* fileName = spells[spell_id].teleport_zone;
 
 	std::string query = StringFormat("SELECT race, gender, texture, mountspeed FROM horses WHERE filename = '%s'", fileName);
-	auto results = database.QueryDatabase(query);
+	auto results = content_db.QueryDatabase(query);
 	if (!results.Success()) {
 		return nullptr;
 	}
 
 	if (results.RowCount() != 1) {
-        Log.Out(Logs::General, Logs::Error, "No Database entry for mount: %s, check the horses table", fileName);
-        return nullptr;
+		LogError("No Database entry for mount: [{}], check the horses table", fileName);
+		return nullptr;
 	}
 
     auto row = results.begin();
 
-	NPCType* npc_type = new NPCType;
-	memset(npc_type, 0, sizeof(NPCType));
-	strcpy(npc_type->name,"Unclaimed_Mount");	//this should never get used
+    auto npc_type = new NPCType;
+    memset(npc_type, 0, sizeof(NPCType));
+    strcpy(npc_type->name, "Unclaimed_Mount"); // this should never get used
 
-	strcpy(npc_type->special_abilities, "19,1^20,1^24,1");
-	npc_type->cur_hp = 1;
-	npc_type->max_hp = 1;
-	npc_type->race = atoi(row[0]);
-	npc_type->gender = atoi(row[1]); // Drogmor's are female horses. Yuck.
-	npc_type->class_ = 1;
-	npc_type->deity= 1;
-	npc_type->level = 1;
-	npc_type->npc_id = 0;
-	npc_type->loottable_id = 0;
-	npc_type->texture = atoi(row[2]); // mount color
-	npc_type->helmtexture = atoi(row[2]); // mount color
-	npc_type->runspeed = atof(row[3]);
+    strcpy(npc_type->special_abilities, "19,1^20,1^24,1");
+    npc_type->current_hp = 1;
+    npc_type->max_hp = 1;
+    npc_type->race = atoi(row[0]);
+    npc_type->gender = atoi(row[1]); // Drogmor's are female horses. Yuck.
+    npc_type->class_ = 1;
+    npc_type->deity = 1;
+    npc_type->level = 1;
+    npc_type->npc_id = 0;
+    npc_type->loottable_id = 0;
+    npc_type->texture = atoi(row[2]);     // mount color
+    npc_type->helmtexture = atoi(row[2]); // mount color
+    npc_type->runspeed = atof(row[3]);
 
-	npc_type->light = 0;
-	npc_type->STR = 75;
-	npc_type->STA = 75;
-	npc_type->DEX = 75;
-	npc_type->AGI = 75;
-	npc_type->INT = 75;
-	npc_type->WIS = 75;
-	npc_type->CHA = 75;
-	horses_auto_delete.Insert(npc_type);
+    npc_type->light = 0;
+    npc_type->STR = 75;
+    npc_type->STA = 75;
+    npc_type->DEX = 75;
+    npc_type->AGI = 75;
+    npc_type->INT = 75;
+    npc_type->WIS = 75;
+    npc_type->CHA = 75;
+    horses_auto_delete.Insert(npc_type);
 
-	return npc_type;
+    return npc_type;
 }
 
 void Client::SummonHorse(uint16 spell_id) {
 	if (GetHorseId() != 0) {
-		Message(13,"You already have a Horse. Get off, Fatbutt!");
+		Message(Chat::Red,"You already have a Horse. Get off, Fatbutt!");
 		return;
 	}
 	if(!Horse::IsHorseSpell(spell_id)) {
-		Log.Out(Logs::General, Logs::Error, "%s tried to summon an unknown horse, spell id %d", GetName(), spell_id);
+		LogError("[{}] tried to summon an unknown horse, spell id [{}]", GetName(), spell_id);
 		return;
 	}
 
 	// No Horse, lets get them one.
 
-	Horse* horse = new Horse(this, spell_id, GetPosition());
+	auto horse = new Horse(this, spell_id, GetPosition());
 
 	//we want to manage the spawn packet ourself.
 	//another reason is we dont want quests executing on it.
@@ -149,6 +151,7 @@ void Client::SummonHorse(uint16 spell_id) {
 
 	uint16 tmpID = horse->GetID();
 	SetHorseId(tmpID);
+	BuffFadeBySitModifier();
 
 }
 

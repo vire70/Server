@@ -1,5 +1,5 @@
 /*	EQEMu: Everquest Server Emulator
-	Copyright (C) 2001-2002 EQEMu Development Team (http://eqemu.org)
+	Copyright (C) 2001-2016 EQEMu Development Team (http://eqemu.org)
 
 	This program is free software; you can redistribute it and/or modify
 	it under the terms of the GNU General Public License as published by
@@ -22,6 +22,7 @@
 #include "../common/types.h"
 
 #include "mob.h"
+#include "xtargetautohaters.h"
 
 class Client;
 class EQApplicationPacket;
@@ -58,7 +59,12 @@ public:
 	void	SendWorldGroup(uint32 zone_id,Mob* zoningmember);
 	bool	DelMemberOOZ(const char *Name);
 	bool	DelMember(Mob* oldmember,bool ignoresender = false);
-	void	DisbandGroup();
+	void	DisbandGroup(bool joinraid = false);
+	void	GetMemberList(std::list<Mob*>& member_list, bool clear_list = true);
+	void	GetClientList(std::list<Client*>& client_list, bool clear_list = true);
+#ifdef BOTS
+	void	GetBotList(std::list<Bot*>& bot_list, bool clear_list = true);
+#endif
 	bool	IsGroupMember(Mob* client);
 	bool	IsGroupMember(const char *Name);
 	bool	Process();
@@ -68,14 +74,16 @@ public:
 	void	GroupBardPulse(Mob* caster,uint16 spellid);
 	void	SplitExp(uint32 exp, Mob* other);
 	void	GroupMessage(Mob* sender,uint8 language,uint8 lang_skill,const char* message);
-	void	GroupMessage_StringID(Mob* sender, uint32 type, uint32 string_id, const char* message,const char* message2=0,const char* message3=0,const char* message4=0,const char* message5=0,const char* message6=0,const char* message7=0,const char* message8=0,const char* message9=0, uint32 distance = 0);
+	void	GroupMessageString(Mob* sender, uint32 type, uint32 string_id, const char* message,const char* message2=0,const char* message3=0,const char* message4=0,const char* message5=0,const char* message6=0,const char* message7=0,const char* message8=0,const char* message9=0, uint32 distance = 0);
 	uint32	GetTotalGroupDamage(Mob* other);
 	void	SplitMoney(uint32 copper, uint32 silver, uint32 gold, uint32 platinum, Client *splitter = nullptr);
 	inline	void SetLeader(Mob* newleader){ leader=newleader; };
 	inline	Mob* GetLeader() { return leader; };
 	const char*	GetLeaderName() { return membername[0]; };
-	void	SendHPPacketsTo(Mob* newmember);
-	void	SendHPPacketsFrom(Mob* newmember);
+	void	SendHPManaEndPacketsTo(Mob* newmember);
+	void	SendHPPacketsFrom(Mob* member);
+	void	SendManaPacketFrom(Mob* member);
+	void SendEndurancePacketFrom(Mob* member);
 	bool	UpdatePlayer(Mob* update);
 	void	MemberZoned(Mob* removemob);
 	inline	bool IsLeader(Mob* leadertest) { return leadertest==leader; };
@@ -123,15 +131,22 @@ public:
 	const char *GetMainTankName() { return MainTankName.c_str(); }
 	const char *GetMainAssistName() { return MainAssistName.c_str(); }
 	const char *GetPullerName() { return PullerName.c_str(); }
+	bool	AmIMainTank(const char *mob_name);
+	bool	AmIMainAssist(const char *mob_name);
+	bool	AmIPuller(const char *mob_name);
 	void	SetNPCMarker(const char *NewNPCMarkerName);
 	void	UnMarkNPC(uint16 ID);
 	void	SendMarkedNPCsToMember(Client *c, bool Clear = false);
 	inline int GetLeadershipAA(int AAID) { return LeaderAbilities.ranks[AAID]; }
 	void	ClearAllNPCMarks();
 	void	QueueHPPacketsForNPCHealthAA(Mob* sender, const EQApplicationPacket* app);
+	void	QueueClients(Mob *sender, const EQApplicationPacket *app, bool ack_required = true, bool ignore_sender = true, float distance = 0);
 	void	ChangeLeader(Mob* newleader);
 	const char *GetClientNameByIndex(uint8 index);
 	void UpdateXTargetMarkedNPC(uint32 Number, Mob *m);
+	void SetDirtyAutoHaters();
+	inline XTargetAutoHaters *GetXTargetAutoMgr() { return &m_autohatermgr; }
+	void JoinRaidXTarget(Raid *raid, bool first = false);
 
 	void SetGroupMentor(int percent, char *name);
 	void ClearGroupMentor();
@@ -160,6 +175,8 @@ private:
 	std::string mentoree_name;
 	Client *mentoree;
 	int mentor_percent;
+
+	XTargetAutoHaters m_autohatermgr;
 };
 
 #endif

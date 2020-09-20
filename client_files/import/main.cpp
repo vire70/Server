@@ -24,8 +24,10 @@
 #include "../../common/crash.h"
 #include "../../common/rulesys.h"
 #include "../../common/string_util.h"
+#include "../../common/content/world_content_service.h"
 
-EQEmuLogSys Log;
+EQEmuLogSys LogSys;
+WorldContentService content_service;
 
 void ImportSpells(SharedDatabase *db);
 void ImportSkillCaps(SharedDatabase *db);
@@ -34,36 +36,60 @@ void ImportDBStrings(SharedDatabase *db);
 
 int main(int argc, char **argv) {
 	RegisterExecutablePlatform(ExePlatformClientImport);
-	Log.LoadLogSettingsDefaults();
+	LogSys.LoadLogSettingsDefaults();
 	set_exception_handler();
 
-	Log.Out(Logs::General, Logs::Status, "Client Files Import Utility");
+	LogInfo("Client Files Import Utility");
 	if(!EQEmuConfig::LoadConfig()) {
-		Log.Out(Logs::General, Logs::Error, "Unable to load configuration file.");
+		LogError("Unable to load configuration file.");
 		return 1;
 	}
 
-	const EQEmuConfig *config = EQEmuConfig::get();
+	auto Config = EQEmuConfig::get();
 
 	SharedDatabase database;
-	Log.Out(Logs::General, Logs::Status, "Connecting to database...");
-	if(!database.Connect(config->DatabaseHost.c_str(), config->DatabaseUsername.c_str(),
-		config->DatabasePassword.c_str(), config->DatabaseDB.c_str(), config->DatabasePort)) {
-		Log.Out(Logs::General, Logs::Error, "Unable to connect to the database, cannot continue without a "
-			"database connection");
+	SharedDatabase content_db;
+
+	LogInfo("Connecting to database");
+	if (!database.Connect(
+		Config->DatabaseHost.c_str(),
+		Config->DatabaseUsername.c_str(),
+		Config->DatabasePassword.c_str(),
+		Config->DatabaseDB.c_str(),
+		Config->DatabasePort
+	)) {
+		LogError("Unable to connect to the database, cannot continue without a database connection");
 		return 1;
 	}
 
-	database.LoadLogSettings(Log.log_settings);
-	Log.StartFileLogs();
+	/**
+	 * Multi-tenancy: Content database
+	 */
+	if (!Config->ContentDbHost.empty()) {
+		if (!content_db.Connect(
+			Config->ContentDbHost.c_str() ,
+			Config->ContentDbUsername.c_str(),
+			Config->ContentDbPassword.c_str(),
+			Config->ContentDbName.c_str(),
+			Config->ContentDbPort
+		)) {
+			LogError("Cannot continue without a content database connection");
+			return 1;
+		}
+	} else {
+		content_db.SetMysql(database.getMySQL());
+	}
 
-	ImportSpells(&database);
-	ImportSkillCaps(&database);
-	ImportBaseData(&database);
+	database.LoadLogSettings(LogSys.log_settings);
+	LogSys.StartFileLogs();
+
+	ImportSpells(&content_db);
+	ImportSkillCaps(&content_db);
+	ImportBaseData(&content_db);
 	ImportDBStrings(&database);
 
-	Log.CloseFileLogs();
-	
+	LogSys.CloseFileLogs();
+
 	return 0;
 }
 
@@ -97,10 +123,10 @@ bool IsStringField(int i) {
 }
 
 void ImportSpells(SharedDatabase *db) {
-	Log.Out(Logs::General, Logs::Status, "Importing Spells...");
+	LogInfo("Importing Spells");
 	FILE *f = fopen("import/spells_us.txt", "r");
 	if(!f) {
-		Log.Out(Logs::General, Logs::Error, "Unable to open import/spells_us.txt to read, skipping.");
+		LogError("Unable to open import/spells_us.txt to read, skipping.");
 		return;
 	}
 
@@ -173,23 +199,23 @@ void ImportSpells(SharedDatabase *db) {
 
 		spells_imported++;
 		if(spells_imported % 1000 == 0) {
-			Log.Out(Logs::General, Logs::Status, "%d spells imported.", spells_imported);
+			LogInfo("[{}] spells imported", spells_imported);
 		}
 	}
 
 	if(spells_imported % 1000 != 0) {
-		Log.Out(Logs::General, Logs::Status, "%d spells imported.", spells_imported);
+		LogInfo("[{}] spells imported", spells_imported);
 	}
 
 	fclose(f);
 }
 
 void ImportSkillCaps(SharedDatabase *db) {
-	Log.Out(Logs::General, Logs::Status, "Importing Skill Caps...");
+	LogInfo("Importing Skill Caps");
 
 	FILE *f = fopen("import/SkillCaps.txt", "r");
 	if(!f) {
-		Log.Out(Logs::General, Logs::Error, "Unable to open import/SkillCaps.txt to read, skipping.");
+		LogError("Unable to open import/SkillCaps.txt to read, skipping.");
 		return;
 	}
 
@@ -220,11 +246,11 @@ void ImportSkillCaps(SharedDatabase *db) {
 }
 
 void ImportBaseData(SharedDatabase *db) {
-	Log.Out(Logs::General, Logs::Status, "Importing Base Data...");
+	LogInfo("Importing Base Data");
 
 	FILE *f = fopen("import/BaseData.txt", "r");
 	if(!f) {
-		Log.Out(Logs::General, Logs::Error, "Unable to open import/BaseData.txt to read, skipping.");
+		LogError("Unable to open import/BaseData.txt to read, skipping.");
 		return;
 	}
 
@@ -265,11 +291,11 @@ void ImportBaseData(SharedDatabase *db) {
 }
 
 void ImportDBStrings(SharedDatabase *db) {
-	Log.Out(Logs::General, Logs::Status, "Importing DB Strings...");
+	LogInfo("Importing DB Strings");
 
 	FILE *f = fopen("import/dbstr_us.txt", "r");
 	if(!f) {
-		Log.Out(Logs::General, Logs::Error, "Unable to open import/dbstr_us.txt to read, skipping.");
+		LogError("Unable to open import/dbstr_us.txt to read, skipping.");
 		return;
 	}
 
@@ -300,10 +326,10 @@ void ImportDBStrings(SharedDatabase *db) {
 		std::string sql;
 		int id, type;
 		std::string value;
-		
+
 		id = atoi(split[0].c_str());
 		type = atoi(split[1].c_str());
-		
+
 		if(split.size() >= 3) {
 			value = ::EscapeString(split[2]);
 		}

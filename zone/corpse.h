@@ -20,16 +20,20 @@
 #define CORPSE_H
 
 #include "mob.h"
+#include "client.h"
 
-class Client;
 class EQApplicationPacket;
 class Group;
-class ItemInst;
 class NPC;
 class Raid;
 
 struct ExtraAttackOptions;
 struct NPCType;
+
+namespace EQ
+{
+	class ItemInstance;
+}
 
 #define MAX_LOOTERS 72
 
@@ -37,19 +41,19 @@ class Corpse : public Mob {
 	public:
 
 	static void SendEndLootErrorPacket(Client* client);
-	static void SendLootReqErrorPacket(Client* client, uint8 response = 2);
+	static void SendLootReqErrorPacket(Client* client, LootResponse response = LootResponse::NotAtThisTime);
 
 	Corpse(NPC* in_npc, ItemList* in_itemlist, uint32 in_npctypeid, const NPCType** in_npctypedata, uint32 in_decaytime = 600000);
 	Corpse(Client* client, int32 in_rezexp);
 	Corpse(uint32 in_corpseid, uint32 in_charid, const char* in_charname, ItemList* in_itemlist, uint32 in_copper, uint32 in_silver, uint32 in_gold, uint32 in_plat, const glm::vec4& position, float in_size, uint8 in_gender, uint16 in_race, uint8 in_class, uint8 in_deity, uint8 in_level, uint8 in_texture, uint8 in_helmtexture, uint32 in_rezexp, bool wasAtGraveyard = false);
 
 	~Corpse();
-	static Corpse* LoadCharacterCorpseEntity(uint32 in_dbid, uint32 in_charid, std::string in_charname, const glm::vec4& position, std::string time_of_death, bool rezzed, bool was_at_graveyard);
+	static Corpse* LoadCharacterCorpseEntity(uint32 in_dbid, uint32 in_charid, std::string in_charname, const glm::vec4& position, std::string time_of_death, bool rezzed, bool was_at_graveyard, uint32 guild_consent_id);
 
 	/* Corpse: General */
-	virtual bool	Death(Mob* killerMob, int32 damage, uint16 spell_id, SkillUseTypes attack_skill) { return true; }
-	virtual void	Damage(Mob* from, int32 damage, uint16 spell_id, SkillUseTypes attack_skill, bool avoidable = true, int8 buffslot = -1, bool iBuffTic = false) { return; }
-	virtual bool	Attack(Mob* other, int Hand = MainPrimary, bool FromRiposte = false, bool			IsStrikethrough = true, bool IsFromSpell = false, ExtraAttackOptions *opts = nullptr) { return false; }
+	virtual bool	Death(Mob* killerMob, int32 damage, uint16 spell_id, EQ::skills::SkillType attack_skill) { return true; }
+	virtual void	Damage(Mob* from, int32 damage, uint16 spell_id, EQ::skills::SkillType attack_skill, bool avoidable = true, int8 buffslot = -1, bool iBuffTic = false, eSpecialAttacks special = eSpecialAttacks::None) { return; }
+	virtual bool	Attack(Mob* other, int Hand = EQ::invslot::slotPrimary, bool FromRiposte = false, bool IsStrikethrough = true, bool IsFromSpell = false, ExtraAttackOptions *opts = nullptr) { return false; }
 	virtual bool	HasRaid()			{ return false; }
 	virtual bool	HasGroup()			{ return false; }
 	virtual Raid*	GetRaid()			{ return 0; }
@@ -70,6 +74,11 @@ class Corpse : public Mob {
 	uint32			GetDecayTime()				{ if (!corpse_decay_timer.Enabled()) return 0xFFFFFFFF; else return corpse_decay_timer.GetRemainingTime(); }
 	uint32			GetRezTime()				{ if (!corpse_rez_timer.Enabled()) return 0; else return corpse_rez_timer.GetRemainingTime(); }
 	void			SetDecayTimer(uint32 decay_time);
+	void			SetConsentGroupID(uint32 group_id) { if (IsPlayerCorpse()) { consented_group_id = group_id; } }
+	void			SetConsentRaidID(uint32 raid_id)   { if (IsPlayerCorpse()) { consented_raid_id = raid_id; } }
+	void			SetConsentGuildID(uint32 guild_id) { if (IsPlayerCorpse()) { consented_guild_id = guild_id; } }
+	void			AddConsentName(std::string consent_player_name);
+	void			RemoveConsentName(std::string consent_player_name);
 
 	void			Delete();
 	void			Bury();
@@ -112,8 +121,9 @@ class Corpse : public Mob {
 	inline void	Lock()				{ is_locked = true; }
 	inline void	UnLock()			{ is_locked = false; }
 	inline bool	IsLocked()			{ return is_locked; }
-	inline void	ResetLooter()		{ being_looted_by = 0xFFFFFFFF; }
+	inline void	ResetLooter()		{ being_looted_by = 0xFFFFFFFF; loot_request_type = LootRequestType::Forbidden; }
 	inline bool	IsBeingLooted()		{ return (being_looted_by != 0xFFFFFFFF); }
+	inline bool	IsBeingLootedBy(Client *c) { return being_looted_by == c->GetID(); }
 
 	/* Mob */
 	void FillSpawnStruct(NewSpawn_Struct* ns, Mob* ForWho);
@@ -121,14 +131,14 @@ class Corpse : public Mob {
 	void Spawn();
 
 	char		corpse_name[64];
-	uint32		GetEquipment(uint8 material_slot) const;
+	uint32		GetEquippedItemFromTextureSlot(uint8 material_slot) const;
 	uint32		GetEquipmentColor(uint8 material_slot) const;
 	inline int	GetRezExp() { return rez_experience; }
 
 	virtual void UpdateEquipmentLight();
 
 protected:
-	void MoveItemToCorpse(Client *client, ItemInst *inst, int16 equipSlot, std::list<uint32> &removedList);
+	void MoveItemToCorpse(Client *client, EQ::ItemInstance *inst, int16 equipSlot, std::list<uint32> &removedList);
 
 private:
 	bool		is_player_corpse; /* Determines if Player Corpse or not */
@@ -137,6 +147,9 @@ private:
 	int32		player_kill_item; /* Determines if Player Kill Item */
 	uint32		corpse_db_id; /* Corpse Database ID (Player Corpse) */
 	uint32		char_id; /* Character ID */
+	uint32		consented_group_id = 0;
+	uint32		consented_raid_id  = 0;
+	uint32		consented_guild_id = 0;
 	ItemList	itemlist; /* Internal Item list used for corpses */
 	uint32		copper;
 	uint32		silver;
@@ -154,8 +167,10 @@ private:
 	Timer		corpse_delay_timer;
 	Timer		corpse_graveyard_timer;
 	Timer		loot_cooldown_timer; /* Delay between loot actions on the corpse entity */
-	Color_Struct item_tint[9];
+	EQ::TintProfile item_tint;
+	std::vector<std::string> consented_player_names;
 
+	LootRequestType	loot_request_type;
 };
 
 #endif

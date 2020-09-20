@@ -32,7 +32,7 @@
  * Eventually this should be derived from an abstract base class
  */
 
-namespace EQEmu {
+namespace EQ {
 	class Random {
 	public:
 		// AKA old MakeRandomInt
@@ -65,13 +65,22 @@ namespace EQEmu {
 			return Real(0.0, 1.0) <= required;
 		}
 
+		// same range as client's roll0
+		// This is their main high level RNG function
+		int Roll0(int max)
+		{
+			if (max - 1 > 0)
+				return Int(0, max - 1);
+			return 0;
+		}
+
 		// std::shuffle requires a RNG engine passed to it, so lets provide a wrapper to use our engine
 		template<typename RandomAccessIterator>
 		void Shuffle(RandomAccessIterator first, RandomAccessIterator last)
 		{
 			static_assert(std::is_same<std::random_access_iterator_tag,
 					typename std::iterator_traits<RandomAccessIterator>::iterator_category>::value,
-					"EQEmu::Random::Shuffle requires random access iterators");
+					"EQ::Random::Shuffle requires random access iterators");
 			std::shuffle(first, last, m_gen);
 		}
 

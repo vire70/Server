@@ -21,7 +21,6 @@ Copyright (C) 2001-2014 EQEMu Development Team (http://eqemulator.net)
 #include "../common/string_util.h"
 #include "queryserv.h"
 #include "worldserver.h"
-#include "net.h"
 
 
 extern WorldServer worldserver;
@@ -35,7 +34,7 @@ QueryServ::~QueryServ(){
 
 void QueryServ::SendQuery(std::string Query)
 {
-	ServerPacket* pack = new ServerPacket(ServerOP_QSSendQuery, Query.length() + 5);
+	auto pack = new ServerPacket(ServerOP_QSSendQuery, Query.length() + 5);
 	pack->WriteUInt32(Query.length()); /* Pack Query String Size so it can be dynamically broken out at queryserv */
 	pack->WriteString(Query.c_str()); /* Query */
 	worldserver.SendPacket(pack);

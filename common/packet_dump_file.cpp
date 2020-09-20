@@ -37,7 +37,7 @@
 	#include <stdarg.h>
 #endif
 
-#include "eq_stream.h"
+#include "eq_stream_intf.h"
 #include "packet_dump_file.h"
 
 void FileDumpPacketAscii(const char* filename, const uchar* buf, uint32 size, uint32 cols, uint32 skip) {
@@ -94,7 +94,9 @@ void FileDumpPacketHex(const char* filename, const uchar* buf, uint32 size, uint
 	std::ofstream logfile(filename, std::ios::app);
 	// Output as HEX
 	char output[4];
-	int j = 0; char* ascii = new char[cols+1]; memset(ascii, 0, cols+1);
+	int j = 0;
+	auto ascii = new char[cols + 1];
+	memset(ascii, 0, cols + 1);
 	uint32 i;
 	for(i=skip; i<size; i++)
 	{

@@ -1,5 +1,5 @@
 /*	EQEMu: Everquest Server Emulator
-Copyright (C) 2001-2004 EQEMu Development Team (http://eqemulator.net)
+Copyright (C) 2001-2016 EQEMu Development Team (http://eqemulator.net)
 
 	This program is free software; you can redistribute it and/or modify
 	it under the terms of the GNU General Public License as published by
@@ -23,7 +23,6 @@ Copyright (C) 2001-2004 EQEMu Development Team (http://eqemulator.net)
 #include "../common/races.h"
 #include "../common/spdat.h"
 #include "../common/string_util.h"
-#include "../common/deity.h"
 #include "aa.h"
 #include "client.h"
 #include "corpse.h"
@@ -34,30 +33,43 @@ Copyright (C) 2001-2004 EQEMu Development Team (http://eqemulator.net)
 #include "string_ids.h"
 #include "titles.h"
 #include "zonedb.h"
+#include "zone_store.h"
 
 extern QueryServ* QServ;
 
-void Mob::TemporaryPets(uint16 spell_id, Mob *targ, const char *name_override, uint32 duration_override, bool followme, bool sticktarg) {
+void Mob::TemporaryPets(uint16 spell_id, Mob *targ, const char *name_override, uint32 duration_override, bool followme, bool sticktarg, uint16 *eye_id) {
 
 	//It might not be a bad idea to put these into the database, eventually..
 
 	//Dook- swarms and wards
 
+	// do nothing if it's a corpse
+	if (targ != nullptr && targ->IsCorpse())
+		return;
+
+	// yep, even these need pet power!
+	int act_power = 0;
+
+	if (IsClient()) {
+		act_power = CastToClient()->GetFocusEffect(focusPetPower, spell_id);
+		act_power = CastToClient()->mod_pet_power(act_power, spell_id);
+	}
+
 	PetRecord record;
-	if(!database.GetPetEntry(spells[spell_id].teleport_zone, &record))
+	if (!content_db.GetPoweredPetEntry(spells[spell_id].teleport_zone, act_power, &record))
 	{
-		Log.Out(Logs::General, Logs::Error, "Unknown swarm pet spell id: %d, check pets table", spell_id);
-		Message(13, "Unable to find data for pet %s", spells[spell_id].teleport_zone);
+		LogError("Unknown swarm pet spell id: {}, check pets table", spell_id);
+		Message(Chat::Red, "Unable to find data for pet %s", spells[spell_id].teleport_zone);
 		return;
 	}
 
-	AA_SwarmPet pet;
+	SwarmPet_Struct pet;
 	pet.count = 1;
 	pet.duration = 1;
 
-	for(int x = 0; x < MAX_SWARM_PETS; x++)
+	for (int x = 0; x < MAX_SWARM_PETS; x++)
 	{
-		if(spells[spell_id].effectid[x] == SE_TemporaryPets)
+		if (spells[spell_id].effectid[x] == SE_TemporaryPets)
 		{
 			pet.count = spells[spell_id].base[x];
 			pet.duration = spells[spell_id].max[x];
@@ -70,15 +82,15 @@ void Mob::TemporaryPets(uint16 spell_id, Mob *targ, const char *name_override, u
 
 	NPCType *made_npc = nullptr;
 
-	const NPCType *npc_type = database.LoadNPCTypesData(pet.npc_id);
-	if(npc_type == nullptr) {
+	const NPCType *npc_type = content_db.LoadNPCTypesData(pet.npc_id);
+	if (npc_type == nullptr) {
 		//log write
-		Log.Out(Logs::General, Logs::Error, "Unknown npc type for swarm pet spell id: %d", spell_id);
-		Message(0,"Unable to find pet!");
+		LogError("Unknown npc type for swarm pet spell id: [{}]", spell_id);
+		Message(0, "Unable to find pet!");
 		return;
 	}
 
-	if(name_override != nullptr) {
+	if (name_override != nullptr) {
 		//we have to make a custom NPC type for this name change
 		made_npc = new NPCType;
 		memcpy(made_npc, npc_type, sizeof(NPCType));
@@ -89,7 +101,7 @@ void Mob::TemporaryPets(uint16 spell_id, Mob *targ, const char *name_override, u
 	int summon_count = 0;
 	summon_count = pet.count;
 
-	if(summon_count > MAX_SWARM_PETS)
+	if (summon_count > MAX_SWARM_PETS)
 		summon_count = MAX_SWARM_PETS;
 
 	static const glm::vec2 swarmPetLocations[MAX_SWARM_PETS] = {
@@ -98,59 +110,67 @@ void Mob::TemporaryPets(uint16 spell_id, Mob *targ, const char *name_override, u
 		glm::vec2(8, 8), glm::vec2(-8, 8), glm::vec2(8, -8), glm::vec2(-8, -8)
 	};
 
-	while(summon_count > 0) {
+	NPC* swarm_pet_npc = nullptr;
+
+	while (summon_count > 0) {
 		int pet_duration = pet.duration;
-		if(duration_override > 0)
+		if (duration_override > 0)
 			pet_duration = duration_override;
 
 		//this is a little messy, but the only way to do it right
 		//it would be possible to optimize out this copy for the last pet, but oh well
 		NPCType *npc_dup = nullptr;
-		if(made_npc != nullptr) {
+		if (made_npc != nullptr) {
 			npc_dup = new NPCType;
 			memcpy(npc_dup, made_npc, sizeof(NPCType));
 		}
 
-		NPC* npca = new NPC(
-				(npc_dup!=nullptr)?npc_dup:npc_type,	//make sure we give the NPC the correct data pointer
-				0,
-				GetPosition() + glm::vec4(swarmPetLocations[summon_count], 0.0f, 0.0f),
-				FlyMode3);
+		swarm_pet_npc = new NPC(
+			(npc_dup != nullptr) ? npc_dup : npc_type,	//make sure we give the NPC the correct data pointer
+			0,
+			GetPosition() + glm::vec4(swarmPetLocations[summon_count], 0.0f, 0.0f),
+			GravityBehavior::Water);
 
 		if (followme)
-			npca->SetFollowID(GetID());
+			swarm_pet_npc->SetFollowID(GetID());
 
-		if(!npca->GetSwarmInfo()){
-			AA_SwarmPetInfo* nSI = new AA_SwarmPetInfo;
-			npca->SetSwarmInfo(nSI);
-			npca->GetSwarmInfo()->duration = new Timer(pet_duration*1000);
+		if (!swarm_pet_npc->GetSwarmInfo()) {
+			auto nSI = new SwarmPet;
+			swarm_pet_npc->SetSwarmInfo(nSI);
+			swarm_pet_npc->GetSwarmInfo()->duration = new Timer(pet_duration * 1000);
 		}
-		else{
-			npca->GetSwarmInfo()->duration->Start(pet_duration*1000);
+		else {
+			swarm_pet_npc->GetSwarmInfo()->duration->Start(pet_duration * 1000);
 		}
+
+		swarm_pet_npc->StartSwarmTimer(pet_duration * 1000);
 
 		//removing this prevents the pet from attacking
-		npca->GetSwarmInfo()->owner_id = GetID();
+		swarm_pet_npc->GetSwarmInfo()->owner_id = GetID();
 
 		//give the pets somebody to "love"
-		if(targ != nullptr){
-			npca->AddToHateList(targ, 1000, 1000);
+		if (targ != nullptr) {
+			swarm_pet_npc->AddToHateList(targ, 1000, 1000);
 			if (RuleB(Spells, SwarmPetTargetLock) || sticktarg)
-				npca->GetSwarmInfo()->target = targ->GetID();
+				swarm_pet_npc->GetSwarmInfo()->target = targ->GetID();
 			else
-				npca->GetSwarmInfo()->target = 0;
+				swarm_pet_npc->GetSwarmInfo()->target = 0;
 		}
 
 		//we allocated a new NPC type object, give the NPC ownership of that memory
-		if(npc_dup != nullptr)
-			npca->GiveNPCTypeData(npc_dup);
+		if (npc_dup != nullptr)
+			swarm_pet_npc->GiveNPCTypeData(npc_dup);
 
-		entity_list.AddNPC(npca, true, true);
+		entity_list.AddNPC(swarm_pet_npc, true, true);
 		summon_count--;
 	}
 
+	if (swarm_pet_npc && IsClient() && eye_id != nullptr) {
+		*eye_id = swarm_pet_npc->GetID();
+	}
+
 	//the target of these swarm pets will take offense to being cast on...
-	if(targ != nullptr)
+	if (targ != nullptr)
 		targ->AddToHateList(this, 1, 0);
 
 	// The other pointers we make are handled elsewhere.
@@ -159,7 +179,7 @@ void Mob::TemporaryPets(uint16 spell_id, Mob *targ, const char *name_override, u
 
 void Mob::TypesTemporaryPets(uint32 typesid, Mob *targ, const char *name_override, uint32 duration_override, bool followme, bool sticktarg) {
 
-	AA_SwarmPet pet;
+	SwarmPet_Struct pet;
 	pet.count = 1;
 	pet.duration = 1;
 
@@ -167,10 +187,10 @@ void Mob::TypesTemporaryPets(uint32 typesid, Mob *targ, const char *name_overrid
 
 	NPCType *made_npc = nullptr;
 
-	const NPCType *npc_type = database.LoadNPCTypesData(typesid);
+	const NPCType *npc_type = content_db.LoadNPCTypesData(typesid);
 	if(npc_type == nullptr) {
 		//log write
-		Log.Out(Logs::General, Logs::Error, "Unknown npc type for swarm pet type id: %d", typesid);
+		LogError("Unknown npc type for swarm pet type id: [{}]", typesid);
 		Message(0,"Unable to find pet!");
 		return;
 	}
@@ -208,42 +228,44 @@ void Mob::TypesTemporaryPets(uint32 typesid, Mob *targ, const char *name_overrid
 			memcpy(npc_dup, made_npc, sizeof(NPCType));
 		}
 
-		NPC* npca = new NPC(
+		NPC* swarm_pet_npc = new NPC(
 				(npc_dup!=nullptr)?npc_dup:npc_type,	//make sure we give the NPC the correct data pointer
 				0,
 				GetPosition() + glm::vec4(swarmPetLocations[summon_count], 0.0f, 0.0f),
-				FlyMode3);
+				GravityBehavior::Water);
 
 		if (followme)
-			npca->SetFollowID(GetID());
+			swarm_pet_npc->SetFollowID(GetID());
 
-		if(!npca->GetSwarmInfo()){
-			AA_SwarmPetInfo* nSI = new AA_SwarmPetInfo;
-			npca->SetSwarmInfo(nSI);
-			npca->GetSwarmInfo()->duration = new Timer(pet_duration*1000);
+		if(!swarm_pet_npc->GetSwarmInfo()){
+			auto nSI = new SwarmPet;
+			swarm_pet_npc->SetSwarmInfo(nSI);
+			swarm_pet_npc->GetSwarmInfo()->duration = new Timer(pet_duration*1000);
 		}
-		else{
-			npca->GetSwarmInfo()->duration->Start(pet_duration*1000);
+		else {
+			swarm_pet_npc->GetSwarmInfo()->duration->Start(pet_duration*1000);
 		}
+
+		swarm_pet_npc->StartSwarmTimer(pet_duration * 1000);
 
 		//removing this prevents the pet from attacking
-		npca->GetSwarmInfo()->owner_id = GetID();
+		swarm_pet_npc->GetSwarmInfo()->owner_id = GetID();
 
 		//give the pets somebody to "love"
 		if(targ != nullptr){
-			npca->AddToHateList(targ, 1000, 1000);
+			swarm_pet_npc->AddToHateList(targ, 1000, 1000);
 
 			if (RuleB(Spells, SwarmPetTargetLock) || sticktarg)
-				npca->GetSwarmInfo()->target = targ->GetID();
+				swarm_pet_npc->GetSwarmInfo()->target = targ->GetID();
 			else
-				npca->GetSwarmInfo()->target = 0;
+				swarm_pet_npc->GetSwarmInfo()->target = 0;
 		}
 
 		//we allocated a new NPC type object, give the NPC ownership of that memory
 		if(npc_dup != nullptr)
-			npca->GiveNPCTypeData(npc_dup);
+			swarm_pet_npc->GiveNPCTypeData(npc_dup);
 
-		entity_list.AddNPC(npca, true, true);
+		entity_list.AddNPC(swarm_pet_npc, true, true);
 		summon_count--;
 	}
 
@@ -260,8 +282,8 @@ void Mob::WakeTheDead(uint16 spell_id, Mob *target, uint32 duration)
 		return;
 
 	//assuming we have pets in our table; we take the first pet as a base type.
-	const NPCType *base_type = database.LoadNPCTypesData(500);
-	NPCType *make_npc = new NPCType;
+	const NPCType *base_type = content_db.LoadNPCTypesData(500);
+	auto make_npc = new NPCType;
 	memcpy(make_npc, base_type, sizeof(NPCType));
 
 	//combat stats
@@ -271,7 +293,7 @@ void Mob::WakeTheDead(uint16 spell_id, Mob *target, uint32 duration)
 	make_npc->min_dmg = 1;
 
 	//base stats
-	make_npc->cur_hp = (GetLevel() * 55);
+	make_npc->current_hp = (GetLevel() * 55);
 	make_npc->max_hp = (GetLevel() * 55);
 	make_npc->STR = 85 + (GetLevel() * 3);
 	make_npc->STA = 85 + (GetLevel() * 3);
@@ -341,51 +363,51 @@ void Mob::WakeTheDead(uint16 spell_id, Mob *target, uint32 duration)
 	case PALADIN:
 		//SPECATK_TRIPLE
 		strcpy(make_npc->special_abilities, "6,1");
-		make_npc->cur_hp = make_npc->cur_hp * 150 / 100;
+		make_npc->current_hp = make_npc->current_hp * 150 / 100;
 		make_npc->max_hp = make_npc->max_hp * 150 / 100;
 		make_npc->npc_spells_id = 8;
 		break;
 	case SHADOWKNIGHT:
 		strcpy(make_npc->special_abilities, "6,1");
-		make_npc->cur_hp = make_npc->cur_hp * 150 / 100;
+		make_npc->current_hp = make_npc->current_hp * 150 / 100;
 		make_npc->max_hp = make_npc->max_hp * 150 / 100;
 		make_npc->npc_spells_id = 9;
 		break;
 	case RANGER:
 		strcpy(make_npc->special_abilities, "7,1");
-		make_npc->cur_hp = make_npc->cur_hp * 135 / 100;
+		make_npc->current_hp = make_npc->current_hp * 135 / 100;
 		make_npc->max_hp = make_npc->max_hp * 135 / 100;
 		make_npc->npc_spells_id = 10;
 		break;
 	case BARD:
 		strcpy(make_npc->special_abilities, "6,1");
-		make_npc->cur_hp = make_npc->cur_hp * 110 / 100;
+		make_npc->current_hp = make_npc->current_hp * 110 / 100;
 		make_npc->max_hp = make_npc->max_hp * 110 / 100;
 		make_npc->npc_spells_id = 11;
 		break;
 	case BEASTLORD:
 		strcpy(make_npc->special_abilities, "7,1");
-		make_npc->cur_hp = make_npc->cur_hp * 110 / 100;
+		make_npc->current_hp = make_npc->current_hp * 110 / 100;
 		make_npc->max_hp = make_npc->max_hp * 110 / 100;
 		make_npc->npc_spells_id = 12;
 		break;
 	case ROGUE:
 		strcpy(make_npc->special_abilities, "7,1");
 		make_npc->max_dmg = make_npc->max_dmg * 150 /100;
-		make_npc->cur_hp = make_npc->cur_hp * 110 / 100;
+		make_npc->current_hp = make_npc->current_hp * 110 / 100;
 		make_npc->max_hp = make_npc->max_hp * 110 / 100;
 		break;
 	case MONK:
 		strcpy(make_npc->special_abilities, "7,1");
 		make_npc->max_dmg = make_npc->max_dmg * 150 /100;
-		make_npc->cur_hp = make_npc->cur_hp * 135 / 100;
+		make_npc->current_hp = make_npc->current_hp * 135 / 100;
 		make_npc->max_hp = make_npc->max_hp * 135 / 100;
 		break;
 	case WARRIOR:
 	case BERSERKER:
 		strcpy(make_npc->special_abilities, "7,1");
 		make_npc->max_dmg = make_npc->max_dmg * 150 /100;
-		make_npc->cur_hp = make_npc->cur_hp * 175 / 100;
+		make_npc->current_hp = make_npc->current_hp * 175 / 100;
 		make_npc->max_hp = make_npc->max_hp * 175 / 100;
 		break;
 	default:
@@ -398,10 +420,10 @@ void Mob::WakeTheDead(uint16 spell_id, Mob *target, uint32 duration)
 	make_npc->d_melee_texture1 = 0;
 	make_npc->d_melee_texture2 = 0;
 
-	NPC* npca = new NPC(make_npc, 0, GetPosition(), FlyMode3);
+	auto npca = new NPC(make_npc, 0, GetPosition(), GravityBehavior::Water);
 
 	if(!npca->GetSwarmInfo()){
-		AA_SwarmPetInfo* nSI = new AA_SwarmPetInfo;
+		auto nSI = new SwarmPet;
 		npca->SetSwarmInfo(nSI);
 		npca->GetSwarmInfo()->duration = new Timer(duration*1000);
 	}
@@ -409,6 +431,7 @@ void Mob::WakeTheDead(uint16 spell_id, Mob *target, uint32 duration)
 		npca->GetSwarmInfo()->duration->Start(duration*1000);
 	}
 
+	npca->StartSwarmTimer(duration * 1000);
 	npca->GetSwarmInfo()->owner_id = GetID();
 
 	//give the pet somebody to "love"
@@ -419,13 +442,13 @@ void Mob::WakeTheDead(uint16 spell_id, Mob *target, uint32 duration)
 
 	//gear stuff, need to make sure there's
 	//no situation where this stuff can be duped
-	for(int x = EmuConstants::EQUIPMENT_BEGIN; x <= EmuConstants::EQUIPMENT_END; x++) // (< 21) added MainAmmo
+	for (int x = EQ::invslot::EQUIPMENT_BEGIN; x <= EQ::invslot::EQUIPMENT_END; x++)
 	{
 		uint32 sitem = 0;
 		sitem = CorpseToUse->GetWornItem(x);
 		if(sitem){
-			const Item_Struct * itm = database.GetItem(sitem);
-			npca->AddLootDrop(itm, &npca->itemlist, 1, 1, 127, true, true);
+			const EQ::ItemData * itm = database.GetItem(sitem);
+			npca->AddLootDrop(itm, &npca->itemlist, NPC::NewLootDropEntry(), true);
 		}
 	}
 
@@ -472,13 +495,13 @@ void Client::ResetAA() {
 
 	database.DeleteCharacterLeadershipAAs(CharacterID());
 	// undefined for these clients
-	if (GetClientVersionBit() & BIT_TitaniumAndEarlier)
-		Kick();
+	if (ClientVersionBit() & EQ::versions::maskTitaniumAndEarlier)
+		Kick("AA Reset on client that doesn't support it");
 }
 
 void Client::SendClearAA()
 {
-	EQApplicationPacket *outapp = new EQApplicationPacket(OP_ClearLeadershipAbilities, 0);
+	auto outapp = new EQApplicationPacket(OP_ClearLeadershipAbilities, 0);
 	FastQueuePacket(&outapp);
 	outapp = new EQApplicationPacket(OP_ClearAA, 0);
 	FastQueuePacket(&outapp);
@@ -734,7 +757,7 @@ void Client::InspectBuffs(Client* Inspector, int Rank)
 	if (!Inspector || Rank == 0)
 		return;
 
-	EQApplicationPacket *outapp = new EQApplicationPacket(OP_InspectBuffs, sizeof(InspectBuffs_Struct));
+	auto outapp = new EQApplicationPacket(OP_InspectBuffs, sizeof(InspectBuffs_Struct));
 	InspectBuffs_Struct *ib = (InspectBuffs_Struct *)outapp->pBuffer;
 
 	uint32 buff_count = GetMaxTotalSlots();
@@ -790,21 +813,21 @@ void Client::RefundAA() {
 	SendAlternateAdvancementStats();
 }
 
-AA_SwarmPetInfo::AA_SwarmPetInfo()
+SwarmPet::SwarmPet()
 {
 	target = 0;
 	owner_id = 0;
 	duration = nullptr;
 }
 
-AA_SwarmPetInfo::~AA_SwarmPetInfo()
+SwarmPet::~SwarmPet()
 {
 	target = 0;
 	owner_id = 0;
 	safe_delete(duration);
 }
 
-Mob *AA_SwarmPetInfo::GetOwner()
+Mob *SwarmPet::GetOwner()
 {
 	return entity_list.GetMobID(owner_id);
 }
@@ -848,7 +871,7 @@ void Client::SendAlternateAdvancementRank(int aa_id, int level) {
 	}
 
 	int size = sizeof(AARankInfo_Struct) + (sizeof(AARankEffect_Struct) * rank->effects.size()) + (sizeof(AARankPrereq_Struct) * rank->prereqs.size());
-	EQApplicationPacket *outapp = new EQApplicationPacket(OP_SendAATable, size);
+	auto outapp = new EQApplicationPacket(OP_SendAATable, size);
 	AARankInfo_Struct *aai = (AARankInfo_Struct*)outapp->pBuffer;
 
 	aai->id = rank->id;
@@ -868,7 +891,7 @@ void Client::SendAlternateAdvancementRank(int aa_id, int level) {
 	aai->max_level = ability->GetMaxLevel(this);
 	aai->prev_id = rank->prev_id;
 
-	if(rank->next && !CanUseAlternateAdvancementRank(rank->next) || ability->charges > 0) {
+	if((rank->next && !CanUseAlternateAdvancementRank(rank->next)) || ability->charges > 0) {
 		aai->next_id = -1;
 	} else {
 		aai->next_id = rank->next_id;
@@ -899,9 +922,9 @@ void Client::SendAlternateAdvancementRank(int aa_id, int level) {
 }
 
 void Client::SendAlternateAdvancementStats() {
-	EQApplicationPacket* outapp = new EQApplicationPacket(OP_AAExpUpdate, sizeof(AltAdvStats_Struct));
+	auto outapp = new EQApplicationPacket(OP_AAExpUpdate, sizeof(AltAdvStats_Struct));
 	AltAdvStats_Struct *aps = (AltAdvStats_Struct *)outapp->pBuffer;
-	aps->experience = (uint32)(((float)330.0f * (float)m_pp.expAA) / (float)max_AAXP);
+	aps->experience = (uint32)(((float)330.0f * (float)m_pp.expAA) / (float)GetRequiredAAExperience());
 	aps->unspent = m_pp.aapoints;
 	aps->percentage = m_epp.perAA;
 	QueuePacket(outapp);
@@ -909,7 +932,7 @@ void Client::SendAlternateAdvancementStats() {
 }
 
 void Client::SendAlternateAdvancementPoints() {
-	EQApplicationPacket* outapp = new EQApplicationPacket(OP_RespondAA, sizeof(AATable_Struct));
+	auto outapp = new EQApplicationPacket(OP_RespondAA, sizeof(AATable_Struct));
 	AATable_Struct* aa2 = (AATable_Struct *)outapp->pBuffer;
 
 	int i = 0;
@@ -934,7 +957,7 @@ void Client::SendAlternateAdvancementPoints() {
 }
 
 void Client::SendAlternateAdvancementTimer(int ability, int begin, int end) {
-	EQApplicationPacket* outapp = new EQApplicationPacket(OP_AAAction, sizeof(UseAA_Struct));
+	auto outapp = new EQApplicationPacket(OP_AAAction, sizeof(UseAA_Struct));
 	UseAA_Struct* uaaout = (UseAA_Struct*)outapp->pBuffer;
 	uaaout->ability = ability;
 	uaaout->begin = begin;
@@ -946,7 +969,7 @@ void Client::SendAlternateAdvancementTimer(int ability, int begin, int end) {
 //sends all AA timers.
 void Client::SendAlternateAdvancementTimers() {
 	//we dont use SendAATimer because theres no reason to allocate the EQApplicationPacket every time
-	EQApplicationPacket* outapp = new EQApplicationPacket(OP_AAAction, sizeof(UseAA_Struct));
+	auto outapp = new EQApplicationPacket(OP_AAAction, sizeof(UseAA_Struct));
 	UseAA_Struct* uaaout = (UseAA_Struct*)outapp->pBuffer;
 
 	PTimerList::iterator c, e;
@@ -975,7 +998,7 @@ void Client::ResetAlternateAdvancementTimer(int ability) {
 }
 
 void Client::ResetAlternateAdvancementTimers() {
-	EQApplicationPacket* outapp = new EQApplicationPacket(OP_AAAction, sizeof(UseAA_Struct));
+	auto outapp = new EQApplicationPacket(OP_AAAction, sizeof(UseAA_Struct));
 	UseAA_Struct* uaaout = (UseAA_Struct*)outapp->pBuffer;
 
 	PTimerList::iterator c, e;
@@ -999,6 +1022,24 @@ void Client::ResetAlternateAdvancementTimers() {
 	}
 
 	safe_delete(outapp);
+}
+
+void Client::ResetOnDeathAlternateAdvancement() {
+	for (const auto &aa : aa_ranks) {
+		auto ability_rank = zone->GetAlternateAdvancementAbilityAndRank(aa.first, aa.second.first);
+		auto ability = ability_rank.first;
+		auto rank = ability_rank.second;
+
+		if (!ability)
+			continue;
+
+		if (!rank)
+			continue;
+
+		// since they're dying, we just need to clear the DB
+		if (ability->reset_on_death)
+			p_timers.Clear(&database, rank->spell_type + pTimerAAStart);
+	}
 }
 
 void Client::PurchaseAlternateAdvancementRank(int rank_id) {
@@ -1075,7 +1116,7 @@ void Client::FinishAlternateAdvancementPurchase(AA::Rank *rank, bool ignore_cost
 	SendAlternateAdvancementStats();
 
 	if(rank->prev) {
-		Message_StringID(15, AA_IMPROVE,
+		MessageString(Chat::Yellow, AA_IMPROVE,
 						 std::to_string(rank->title_sid).c_str(),
 						 std::to_string(rank->prev->current_value).c_str(),
 						 std::to_string(cost).c_str(),
@@ -1088,7 +1129,7 @@ void Client::FinishAlternateAdvancementPurchase(AA::Rank *rank, bool ignore_cost
 		}
 	}
 	else {
-		Message_StringID(15, AA_GAIN_ABILITY,
+		MessageString(Chat::Yellow, AA_GAIN_ABILITY,
 						 std::to_string(rank->title_sid).c_str(),
 						 std::to_string(cost).c_str(),
 						 cost == 1 ? std::to_string(AA_POINT).c_str() : std::to_string(AA_POINTS).c_str());
@@ -1142,7 +1183,7 @@ void Client::ActivateAlternateAdvancementAbility(int rank_id, int target_id) {
 	}
 
 	//make sure it is not a passive
-	if(rank->effects.size() > 0) {
+	if(!rank->effects.empty()) {
 		return;
 	}
 
@@ -1156,18 +1197,18 @@ void Client::ActivateAlternateAdvancementAbility(int rank_id, int target_id) {
 		return;
 
 	//check cooldown
-	if(!p_timers.Expired(&database, rank->spell_type + pTimerAAStart)) {
+	if(!p_timers.Expired(&database, rank->spell_type + pTimerAAStart, false)) {
 		uint32 aaremain = p_timers.GetRemainingTime(rank->spell_type + pTimerAAStart);
 		uint32 aaremain_hr = aaremain / (60 * 60);
 		uint32 aaremain_min = (aaremain / 60) % 60;
 		uint32 aaremain_sec = aaremain % 60;
 
 		if(aaremain_hr >= 1) {
-			Message(13, "You can use this ability again in %u hour(s) %u minute(s) %u seconds",
+			Message(Chat::Red, "You can use this ability again in %u hour(s) %u minute(s) %u seconds",
 			aaremain_hr, aaremain_min, aaremain_sec);
 		}
 		else {
-			Message(13, "You can use this ability again in %u minute(s) %u seconds",
+			Message(Chat::Red, "You can use this ability again in %u minute(s) %u seconds",
 			aaremain_min, aaremain_sec);
 		}
 
@@ -1180,14 +1221,37 @@ void Client::ActivateAlternateAdvancementAbility(int rank_id, int target_id) {
 		cooldown = 0;
 	}
 
+	if (!IsCastWhileInvis(rank->spell))
+		CommonBreakInvisible();
+
+	if (spells[rank->spell].sneak && (!hidden || (hidden && (Timer::GetCurrentTime() - tmHidden) < 4000))) {
+		MessageString(Chat::SpellFailure, SNEAK_RESTRICT);
+		return;
+	}
+	//
+	// Modern clients don't require pet targeted for AA casts that are ST_Pet
+	if (spells[rank->spell].targettype == ST_Pet || spells[rank->spell].targettype == ST_SummonedPet)
+		target_id = GetPetID();
+
+	// extra handling for cast_not_standing spells
+	if (!spells[rank->spell].cast_not_standing) {
+		if (GetAppearance() == eaSitting) // we need to stand!
+			SetAppearance(eaStanding, false);
+
+		if (GetAppearance() != eaStanding) {
+			MessageString(Chat::SpellFailure, STAND_TO_CAST);
+			return;
+		}
+	}
+
 	// Bards can cast instant cast AAs while they are casting another song
 	if(spells[rank->spell].cast_time == 0 && GetClass() == BARD && IsBardSong(casting_spell_id)) {
-		if(!SpellFinished(rank->spell, entity_list.GetMob(target_id), ALTERNATE_ABILITY_SPELL_SLOT, spells[rank->spell].mana, -1, spells[rank->spell].ResistDiff, false)) {
+		if(!SpellFinished(rank->spell, entity_list.GetMob(target_id), EQ::spells::CastingSlot::AltAbility, spells[rank->spell].mana, -1, spells[rank->spell].ResistDiff, false)) {
 			return;
 		}
 		ExpendAlternateAdvancementCharge(ability->id);
 	} else {
-		if(!CastSpell(rank->spell, target_id, ALTERNATE_ABILITY_SPELL_SLOT, -1, -1, 0, -1, rank->spell_type + pTimerAAStart, cooldown, nullptr, rank->id)) {
+		if(!CastSpell(rank->spell, target_id, EQ::spells::CastingSlot::AltAbility, -1, -1, 0, -1, rank->spell_type + pTimerAAStart, cooldown, nullptr, rank->id)) {
 			return;
 		}
 	}
@@ -1238,6 +1302,10 @@ void Mob::ExpendAlternateAdvancementCharge(uint32 aa_id) {
 						if(r) {
 							CastToClient()->GetEPP().expended_aa += r->cost;
 						}
+					}
+					if (IsClient()) {
+						auto c = CastToClient();
+						c->RemoveExpendedAA(ability->first_rank_id);
 					}
 					aa_ranks.erase(iter.first);
 				}
@@ -1412,29 +1480,37 @@ bool Mob::CanUseAlternateAdvancementRank(AA::Rank *rank) {
 	//the one titanium hack i will allow
 	//just to make sure we dont crash the client with newer aas
 	//we'll exclude any expendable ones
-	if(IsClient() && CastToClient()->GetClientVersionBit() & BIT_TitaniumAndEarlier) {
+	if(IsClient() && CastToClient()->ClientVersionBit() & EQ::versions::maskTitaniumAndEarlier) {
 		if(ability->charges > 0) {
 			return false;
 		}
 	}
 
-	if(IsClient()) {
-		if(!(CastToClient()->GetPP().expansions & (1 << rank->expansion))) {
+	if (IsClient()) {
+		if (rank->expansion && !(CastToClient()->GetPP().expansions & (1 << (rank->expansion - 1)))) {
 			return false;
 		}
-	} else {
-		if(!(RuleI(World, ExpansionSettings) & (1 << rank->expansion))) {
+	}
+#ifdef BOTS
+	else if (IsBot()) {
+		if (rank->expansion && !(RuleI(Bots, BotExpansionSettings) & (1 << (rank->expansion - 1)))) {
+			return false;
+		}
+	}
+#endif
+	else {
+		if (rank->expansion && !(RuleI(World, ExpansionSettings) & (1 << (rank->expansion - 1)))) {
 			return false;
 		}
 	}
 
-	auto race = GetArrayRace(GetBaseRace());
+	auto race = GetPlayerRaceValue(GetBaseRace());
 	race = race > 16 ? 1 : race;
 	if(!(ability->races & (1 << (race - 1)))) {
 		return false;
 	}
 
-	auto deity = ConvertDeityToBitDeity((DeityTypes)GetDeity());
+	auto deity = GetDeityBit();
 	if(!(ability->deities & deity)) {
 		return false;
 	}
@@ -1519,17 +1595,17 @@ bool Mob::CanPurchaseAlternateAdvancementRank(AA::Rank *rank, bool check_price, 
 }
 
 void Zone::LoadAlternateAdvancement() {
-	Log.Out(Logs::General, Logs::Status, "Loading Alternate Advancement Data...");
-	if(!database.LoadAlternateAdvancementAbilities(aa_abilities,
+	LogInfo("Loading Alternate Advancement Data");
+	if(!content_db.LoadAlternateAdvancementAbilities(aa_abilities,
 		aa_ranks))
 	{
 		aa_abilities.clear();
 		aa_ranks.clear();
-		Log.Out(Logs::General, Logs::Status, "Failed to load Alternate Advancement Data");
+		LogInfo("Failed to load Alternate Advancement Data");
 		return;
 	}
 
-	Log.Out(Logs::General, Logs::Status, "Processing Alternate Advancement Data...");
+	LogInfo("Processing Alternate Advancement Data");
 	for(const auto &ability : aa_abilities) {
 		ability.second->first = GetAlternateAdvancementRank(ability.second->first_rank_id);
 
@@ -1580,20 +1656,20 @@ void Zone::LoadAlternateAdvancement() {
 		}
 	}
 
-	Log.Out(Logs::General, Logs::Status, "Loaded Alternate Advancement Data");
+	LogInfo("Loaded Alternate Advancement Data");
 }
 
 bool ZoneDatabase::LoadAlternateAdvancementAbilities(std::unordered_map<int, std::unique_ptr<AA::Ability>> &abilities,
 													std::unordered_map<int, std::unique_ptr<AA::Rank>> &ranks)
 {
-	Log.Out(Logs::General, Logs::Status, "Loading Alternate Advancement Abilities...");
+	LogInfo("Loading Alternate Advancement Abilities");
 	abilities.clear();
 	std::string query = "SELECT id, name, category, classes, races, deities, drakkin_heritage, status, type, charges, "
-		"grant_only, first_rank_id FROM aa_ability WHERE enabled = 1";
+		"grant_only, reset_on_death, first_rank_id FROM aa_ability WHERE enabled = 1";
 	auto results = QueryDatabase(query);
 	if(results.Success()) {
 		for(auto row = results.begin(); row != results.end(); ++row) {
-			AA::Ability *ability = new AA::Ability;
+			auto ability = new AA::Ability;
 			ability->id = atoi(row[0]);
 			ability->name = row[1];
 			ability->category = atoi(row[2]);
@@ -1606,26 +1682,27 @@ bool ZoneDatabase::LoadAlternateAdvancementAbilities(std::unordered_map<int, std
 			ability->type = atoi(row[8]);
 			ability->charges = atoi(row[9]);
 			ability->grant_only = atoi(row[10]) != 0 ? true : false;
-			ability->first_rank_id = atoi(row[11]);
+			ability->reset_on_death = atoi(row[11]) != 0 ? true : false;
+			ability->first_rank_id = atoi(row[12]);
 			ability->first = nullptr;
 
 			abilities[ability->id] = std::unique_ptr<AA::Ability>(ability);
 		}
 	} else {
-		Log.Out(Logs::General, Logs::Error, "Failed to load Alternate Advancement Abilities");
+		LogError("Failed to load Alternate Advancement Abilities");
 		return false;
 	}
 
-	Log.Out(Logs::General, Logs::Status, "Loaded %d Alternate Advancement Abilities", (int)abilities.size());
+	LogInfo("Loaded [{}] Alternate Advancement Abilities", (int)abilities.size());
 
-	Log.Out(Logs::General, Logs::Status, "Loading Alternate Advancement Ability Ranks...");
+	LogInfo("Loading Alternate Advancement Ability Ranks");
 	ranks.clear();
 	query = "SELECT id, upper_hotkey_sid, lower_hotkey_sid, title_sid, desc_sid, cost, level_req, spell, spell_type, recast_time, "
 		"next_id, expansion FROM aa_ranks";
 	results = QueryDatabase(query);
 	if(results.Success()) {
 		for(auto row = results.begin(); row != results.end(); ++row) {
-			AA::Rank *rank = new AA::Rank;
+			auto rank = new AA::Rank;
 			rank->id = atoi(row[0]);
 			rank->upper_hotkey_sid = atoi(row[1]);
 			rank->lower_hotkey_sid = atoi(row[2]);
@@ -1647,13 +1724,13 @@ bool ZoneDatabase::LoadAlternateAdvancementAbilities(std::unordered_map<int, std
 			ranks[rank->id] = std::unique_ptr<AA::Rank>(rank);
 		}
 	} else {
-		Log.Out(Logs::General, Logs::Error, "Failed to load Alternate Advancement Ability Ranks");
+		LogError("Failed to load Alternate Advancement Ability Ranks");
 		return false;
 	}
 
-	Log.Out(Logs::General, Logs::Status, "Loaded %d Alternate Advancement Ability Ranks", (int)ranks.size());
+	LogInfo("Loaded [{}] Alternate Advancement Ability Ranks", (int)ranks.size());
 
-	Log.Out(Logs::General, Logs::Status, "Loading Alternate Advancement Ability Rank Effects...");
+	LogInfo("Loading Alternate Advancement Ability Rank Effects");
 	query = "SELECT rank_id, slot, effect_id, base1, base2 FROM aa_rank_effects";
 	results = QueryDatabase(query);
 	if(results.Success()) {
@@ -1674,13 +1751,13 @@ bool ZoneDatabase::LoadAlternateAdvancementAbilities(std::unordered_map<int, std
 			}
 		}
 	} else {
-		Log.Out(Logs::General, Logs::Error, "Failed to load Alternate Advancement Ability Rank Effects");
+		LogError("Failed to load Alternate Advancement Ability Rank Effects");
 		return false;
 	}
 
-	Log.Out(Logs::General, Logs::Status, "Loaded Alternate Advancement Ability Rank Effects");
+	LogInfo("Loaded Alternate Advancement Ability Rank Effects");
 
-	Log.Out(Logs::General, Logs::Status, "Loading Alternate Advancement Ability Rank Prereqs...");
+	LogInfo("Loading Alternate Advancement Ability Rank Prereqs");
 	query = "SELECT rank_id, aa_id, points FROM aa_rank_prereqs";
 	results = QueryDatabase(query);
 	if(results.Success()) {
@@ -1699,11 +1776,11 @@ bool ZoneDatabase::LoadAlternateAdvancementAbilities(std::unordered_map<int, std
 			}
 		}
 	} else {
-		Log.Out(Logs::General, Logs::Error, "Failed to load Alternate Advancement Ability Rank Prereqs");
+		LogError("Failed to load Alternate Advancement Ability Rank Prereqs");
 		return false;
 	}
 
-	Log.Out(Logs::General, Logs::Status, "Loaded Alternate Advancement Ability Rank Prereqs");
+	LogInfo("Loaded Alternate Advancement Ability Rank Prereqs");
 
 	return true;
 }

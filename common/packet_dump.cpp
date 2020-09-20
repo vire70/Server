@@ -54,7 +54,7 @@ void DumpPacketHex(const uchar* buf, uint32 size, uint32 cols, uint32 skip) {
 	// Output as HEX
 	char output[4];
 	int j = 0;
-	char* ascii = new char[cols+1];
+	auto ascii = new char[cols + 1];
 	memset(ascii, 0, cols+1);
 	uint32 i;
 	for(i=skip; i<size; i++)
@@ -100,7 +100,7 @@ std::string DumpPacketHexToString(const uchar* buf, uint32 size, uint32 cols, ui
 	// Output as HEX
 	char output[4];
 	int j = 0;
-	char* ascii = new char[cols + 1];
+	auto ascii = new char[cols + 1];
 	memset(ascii, 0, cols + 1);
 	uint32 i;
 	for (i = skip; i < size; i++)
@@ -150,6 +150,15 @@ void DumpPacket(const ServerPacket* pack, bool iShowInfo) {
 		std::cout << " size:" << pack->size << std::endl;
 	}
 	DumpPacketHex(pack->pBuffer, pack->size);
+}
+
+void DumpPacket(uint16 opcode, const EQ::Net::Packet &p, bool iShowInfo) {
+	if (iShowInfo) {
+		std::cout << "Dumping ServerPacket: 0x" << std::hex << std::setfill('0') << std::setw(4) << opcode << std::dec;
+		std::cout << " size:" << p.Length() << std::endl;
+	}
+	
+	std::cout << p.ToString() << std::endl;
 }
 
 void DumpPacketBin(const ServerPacket* pack) {

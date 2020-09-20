@@ -1,3 +1,23 @@
+/*	EQEMu: Everquest Server Emulator
+	
+	Copyright (C) 2001-2016 EQEMu Development Team (http://eqemulator.net)
+
+	This program is free software; you can redistribute it and/or modify
+	it under the terms of the GNU General Public License as published by
+	the Free Software Foundation; version 2 of the License.
+
+	This program is distributed in the hope that it will be useful,
+	but WITHOUT ANY WARRANTY except by those people which sell it, which
+	are required to give you total support for your newly bought product;
+	without even the implied warranty of MERCHANTABILITY or FITNESS FOR
+	A PARTICULAR PURPOSE.  See the GNU General Public License for more details.
+
+	You should have received a copy of the GNU General Public License
+	along with this program; if not, write to the Free Software
+	Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+*/
+
+
 // out-going packets that require an ENCODE translation:
 // Begin RoF2 Encodes
 
@@ -32,7 +52,6 @@ E(OP_CastSpell)
 E(OP_ChannelMessage)
 E(OP_CharInventory)
 E(OP_ClickObjectAction)
-E(OP_ClientUpdate)
 E(OP_Consider)
 E(OP_Damage)
 E(OP_DeleteCharge)
@@ -57,6 +76,7 @@ E(OP_GroupFollow)
 E(OP_GroupFollow2)
 E(OP_GroupInvite)
 E(OP_GroupUpdate)
+E(OP_GuildBank)
 E(OP_GuildMemberList)
 E(OP_GuildMemberUpdate)
 E(OP_GuildsList)
@@ -64,7 +84,6 @@ E(OP_HPUpdate)
 E(OP_Illusion)
 E(OP_InspectBuffs)
 E(OP_InspectRequest)
-E(OP_InterruptCast)
 E(OP_ItemLinkResponse)
 E(OP_ItemPacket)
 E(OP_ItemVerifyReply)
@@ -78,7 +97,6 @@ E(OP_MoveItem)
 E(OP_NewSpawn)
 E(OP_NewZone)
 E(OP_OnLevelMessage)
-//E(OP_OpenNewTasksWindow)
 E(OP_PetBuffWindow)
 E(OP_PlayerProfile)
 E(OP_RaidJoin)
@@ -120,6 +138,7 @@ E(OP_ZoneEntry)
 E(OP_ZonePlayerToBind)
 E(OP_ZoneServerInfo)
 E(OP_ZoneSpawns)
+E(OP_CrystalCountUpdate)
 // Begin RoF Decodes
 D(OP_AdventureMerchantSell)
 D(OP_AltCurrencySell)
@@ -135,7 +154,6 @@ D(OP_BuffRemoveRequest)
 D(OP_CastSpell)
 D(OP_ChannelMessage)
 D(OP_CharacterCreate)
-D(OP_ClientUpdate)
 D(OP_Consider)
 D(OP_ConsiderCorpse)
 D(OP_Consume)
@@ -152,6 +170,7 @@ D(OP_GroupFollow)
 D(OP_GroupFollow2)
 D(OP_GroupInvite)
 D(OP_GroupInvite2)
+D(OP_GuildBank)
 D(OP_GuildDemote)
 D(OP_GuildRemove)
 D(OP_GuildStatus)

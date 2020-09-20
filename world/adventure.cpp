@@ -11,11 +11,12 @@
 #include "zonelist.h"
 #include "clientlist.h"
 #include "cliententry.h"
+#include "world_store.h"
 
 extern ZSList zoneserver_list;
 extern ClientList client_list;
 extern AdventureManager adventure_manager;
-extern EQEmu::Random emu_random;
+extern EQ::Random emu_random;
 
 Adventure::Adventure(AdventureTemplate *t)
 {
@@ -122,7 +123,7 @@ bool Adventure::Process()
 		else if(status == AS_WaitingForPrimaryEndTime)
 		{
 			//Do partial failure: send a message to the clients that they can only get a certain amount of points.
-			SendAdventureMessage(13, "You failed to complete your adventure in time. Complete your adventure goal within 30 minutes to "
+			SendAdventureMessage(Chat::Red, "You failed to complete your adventure in time. Complete your adventure goal within 30 minutes to "
 				"receive a lesser reward. This adventure will end in 30 minutes and your party will be ejected from the dungeon.");
 			SetStatus(AS_WaitingForSecondaryEndTime);
 		}
@@ -143,7 +144,7 @@ bool Adventure::Process()
 
 bool Adventure::CreateInstance()
 {
-	uint32 zone_id = database.GetZoneID(adventure_template->zone);
+	uint32 zone_id = ZoneID(adventure_template->zone);
 	if(!zone_id)
 	{
 		return false;
@@ -177,7 +178,6 @@ void Adventure::SetStatus(AdventureStatus new_status)
 		ut->instance_id = instance_id;
 		ut->new_duration = adventure_template->duration + 60;
 
-		pack->Deflate();
 		zoneserver_list.SendPacket(0, instance_id, pack);
 		safe_delete(pack);
 	}
@@ -192,7 +192,6 @@ void Adventure::SetStatus(AdventureStatus new_status)
 		ut->instance_id = instance_id;
 		ut->new_duration = 1860;
 
-		pack->Deflate();
 		zoneserver_list.SendPacket(0, instance_id, pack);
 		safe_delete(pack);
 	}
@@ -207,7 +206,6 @@ void Adventure::SetStatus(AdventureStatus new_status)
 		ut->instance_id = instance_id;
 		ut->new_duration = 1860;
 
-		pack->Deflate();
 		zoneserver_list.SendPacket(0, instance_id, pack);
 		safe_delete(pack);
 	}
@@ -290,7 +288,7 @@ void Adventure::Finished(AdventureWinStatus ws)
 		ClientListEntry *current = client_list.FindCharacter((*iter).c_str());
 		if(current)
 		{
-			if(current->Online() == CLE_Status_InZone)
+			if(current->Online() == CLE_Status::InZone)
 			{
 				//We can send our packets only.
 				auto pack =
@@ -313,7 +311,7 @@ void Adventure::Finished(AdventureWinStatus ws)
 					af->win = false;
 					af->points = 0;
 				}
-				pack->Deflate();
+
 				zoneserver_list.SendPacket(current->zone(), current->instance(), pack);
 				database.UpdateAdventureStatsEntry(database.GetCharacterID((*iter).c_str()), GetTemplate()->theme, (ws != AWS_Lose) ? true : false);
 				delete pack;
@@ -365,7 +363,7 @@ void Adventure::Finished(AdventureWinStatus ws)
 				afe.points = 0;
 			}
 			adventure_manager.AddFinishedEvent(afe);
-			
+
 			database.UpdateAdventureStatsEntry(database.GetCharacterID((*iter).c_str()), GetTemplate()->theme, (ws != AWS_Lose) ? true : false);
 		}
 		++iter;
@@ -383,7 +381,7 @@ void Adventure::MoveCorpsesToGraveyard()
 	std::list<uint32> dbid_list;
 	std::list<uint32> charid_list;
 
-	std::string query = StringFormat("SELECT id, charid FROM character_corpses WHERE instanceid=%d", GetInstanceID());
+	std::string query = StringFormat("SELECT id, charid FROM character_corpses WHERE instance_id=%d", GetInstanceID());
 	auto results = database.QueryDatabase(query);
 	if(!results.Success())
 
@@ -398,8 +396,8 @@ void Adventure::MoveCorpsesToGraveyard()
 		float z = GetTemplate()->graveyard_z;
 
 		query = StringFormat("UPDATE character_corpses "
-                            "SET zoneid = %d, instanceid = 0, "
-                            "x = %f, y = %f, z = %f WHERE instanceid = %d",
+                            "SET zone_id = %d, instance_id = 0, "
+                            "x = %f, y = %f, z = %f WHERE instance_id = %d",
                             GetTemplate()->graveyard_zone_id,
                             x, y, z, GetInstanceID());
 		database.QueryDatabase(query);
