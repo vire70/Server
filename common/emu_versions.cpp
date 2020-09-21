@@ -56,6 +56,8 @@ const char* EQ::versions::ClientVersionName(ClientVersion client_version)
 		return "RoF";
 	case ClientVersion::RoF2:
 		return "RoF2";
+	case ClientVersion::TDS:
+		return "TDS";
 	default:
 		return "Invalid Version";
 	};
@@ -76,6 +78,8 @@ uint32 EQ::versions::ConvertClientVersionToClientVersionBit(ClientVersion client
 		return bitRoF;
 	case ClientVersion::RoF2:
 		return bitRoF2;
+	case ClientVersion::TDS:
+		return bitTDS;
 	default:
 		return bitUnknown;
 	}
@@ -96,6 +100,8 @@ EQ::versions::ClientVersion EQ::versions::ConvertClientVersionBitToClientVersion
 		return ClientVersion::RoF;
 	case ((uint32)1 << (static_cast<unsigned int>(ClientVersion::RoF2) - 1)) :
 		return ClientVersion::RoF2;
+	case ((uint32)1 << (static_cast<unsigned int>(ClientVersion::TDS) - 1)):
+		return ClientVersion::TDS;
 	default:
 		return ClientVersion::Unknown;
 	}
@@ -184,6 +190,8 @@ const char* EQ::versions::MobVersionName(MobVersion mob_version)
 		return "RoF";
 	case MobVersion::RoF2:
 		return "RoF2";
+	case MobVersion::TDS:
+		return "TDS";
 	case MobVersion::NPC:
 		return "NPC";
 	case MobVersion::NPCMerchant:
@@ -212,6 +220,8 @@ const char* EQ::versions::MobVersionName(MobVersion mob_version)
 		return "Offline RoF";
 	case MobVersion::OfflineRoF2:
 		return "Offline RoF2";
+	case MobVersion::OfflineTDS:
+		return "Offline TDS";
 	default:
 		return "Invalid Version";
 	};
@@ -235,6 +245,8 @@ EQ::versions::ClientVersion EQ::versions::ConvertMobVersionToClientVersion(MobVe
 		return ClientVersion::RoF;
 	case MobVersion::RoF2:
 		return ClientVersion::RoF2;
+	case MobVersion::TDS:
+		return ClientVersion::TDS;
 	default:
 		return ClientVersion::Unknown;
 	}
@@ -258,6 +270,8 @@ EQ::versions::MobVersion EQ::versions::ConvertClientVersionToMobVersion(ClientVe
 		return MobVersion::RoF;
 	case ClientVersion::RoF2:
 		return MobVersion::RoF2;
+	case ClientVersion::TDS:
+		return MobVersion::TDS;
 	default:
 		return MobVersion::Unknown;
 	}
@@ -278,6 +292,8 @@ EQ::versions::MobVersion EQ::versions::ConvertPCMobVersionToOfflinePCMobVersion(
 		return MobVersion::OfflineRoF;
 	case MobVersion::RoF2:
 		return MobVersion::OfflineRoF2;
+	case MobVersion::TDS:
+		return MobVersion::OfflineTDS;
 	default:
 		return MobVersion::Unknown;
 	}
@@ -298,6 +314,8 @@ EQ::versions::MobVersion EQ::versions::ConvertOfflinePCMobVersionToPCMobVersion(
 		return MobVersion::RoF;
 	case MobVersion::OfflineRoF2:
 		return MobVersion::RoF2;
+	case MobVersion::OfflineTDS:
+		return MobVersion::TDS;
 	default:
 		return MobVersion::Unknown;
 	}
@@ -318,6 +336,8 @@ EQ::versions::ClientVersion EQ::versions::ConvertOfflinePCMobVersionToClientVers
 		return ClientVersion::RoF;
 	case MobVersion::OfflineRoF2:
 		return ClientVersion::RoF2;
+	case MobVersion::OfflineTDS:
+		return ClientVersion::TDS;
 	default:
 		return ClientVersion::Unknown;
 	}
@@ -338,6 +358,8 @@ EQ::versions::MobVersion EQ::versions::ConvertClientVersionToOfflinePCMobVersion
 		return MobVersion::OfflineRoF;
 	case ClientVersion::RoF2:
 		return MobVersion::OfflineRoF2;
+	case ClientVersion::TDS:
+		return MobVersion::OfflineTDS;
 	default:
 		return MobVersion::Unknown;
 	}
@@ -388,6 +410,8 @@ const char* EQ::expansions::ExpansionName(Expansion expansion)
 		return "Rain of Fear";
 	case Expansion::CotF:
 		return "Call of the Forsaken";
+	case Expansion::TDS:
+		return "The Darkened Sea";
 	default:
 		return "Invalid Expansion";
 	}
@@ -441,6 +465,8 @@ uint32 EQ::expansions::ConvertExpansionToExpansionBit(Expansion expansion)
 		return bitRoF;
 	case Expansion::CotF:
 		return bitCotF;
+	case Expansion::TDS:
+		return bitTDS;
 	default:
 		return bitEverQuest;
 	}
@@ -489,6 +515,8 @@ EQ::expansions::Expansion EQ::expansions::ConvertExpansionBitToExpansion(uint32 
 		return Expansion::RoF;
 	case bitCotF:
 		return Expansion::CotF;
+	case bitTDS:
+		return Expansion::TDS;
 	default:
 		return Expansion::EverQuest;
 	}
@@ -537,6 +565,8 @@ uint32 EQ::expansions::ConvertExpansionToExpansionsMask(Expansion expansion)
 		return maskRoF;
 	case Expansion::CotF:
 		return maskCotF;
+	case Expansion::TDS:
+		return maskTDS;
 	default:
 		return maskEverQuest;
 	}

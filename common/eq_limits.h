@@ -29,6 +29,7 @@
 #include "../common/patches/uf_limits.h"
 #include "../common/patches/rof_limits.h"
 #include "../common/patches/rof2_limits.h"
+#include "../common/patches/tds_limits.h"
 
 
 namespace EQ

@@ -1,5 +1,24 @@
-#ifndef TDS_STRUCTS_H_
-#define TDS_STRUCTS_H_
+/*	EQEMu: Everquest Server Emulator
+	
+	Copyright (C) 2001-2016 EQEMu Development Team (http://eqemulator.net)
+
+	This program is free software; you can redistribute it and/or modify
+	it under the terms of the GNU General Public License as published by
+	the Free Software Foundation; version 2 of the License.
+
+	This program is distributed in the hope that it will be useful,
+	but WITHOUT ANY WARRANTY except by those people which sell it, which
+	are required to give you total support for your newly bought product;
+	without even the implied warranty of MERCHANTABILITY or FITNESS FOR
+	A PARTICULAR PURPOSE.  See the GNU General Public License for more details.
+
+	You should have received a copy of the GNU General Public License
+	along with this program; if not, write to the Free Software
+	Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+*/
+
+#ifndef COMMON_TDS_STRUCTS_H
+#define COMMON_TDS_STRUCTS_H
 
 namespace TDS {
 	namespace structs {
@@ -215,7 +234,7 @@ struct CharacterSelect_Struct
 * Visible equiptment.
 * Size: 20 Octets
 */
-struct EquipStruct
+struct Texture_Struct
 {
 	/*00*/ uint32 Material;
 	/*04*/ uint32 Unknown1;
@@ -449,17 +468,17 @@ struct Spawn_Struct
          {
            struct
            {
-               /*0000*/ EquipStruct equip_helmet;     // Equiptment: Helmet visual
-               /*0000*/ EquipStruct equip_chest;      // Equiptment: Chest visual
-               /*0000*/ EquipStruct equip_arms;       // Equiptment: Arms visual
-               /*0000*/ EquipStruct equip_bracers;    // Equiptment: Wrist visual
-               /*0000*/ EquipStruct equip_hands;      // Equiptment: Hands visual
-               /*0000*/ EquipStruct equip_legs;       // Equiptment: Legs visual
-               /*0000*/ EquipStruct equip_feet;       // Equiptment: Boots visual
-               /*0000*/ EquipStruct equip_primary;    // Equiptment: Main visual
-               /*0000*/ EquipStruct equip_secondary;  // Equiptment: Off visual
+               /*0000*/ Texture_Struct equip_helmet;     // Equiptment: Helmet visual
+               /*0000*/ Texture_Struct equip_chest;      // Equiptment: Chest visual
+               /*0000*/ Texture_Struct equip_arms;       // Equiptment: Arms visual
+               /*0000*/ Texture_Struct equip_bracers;    // Equiptment: Wrist visual
+               /*0000*/ Texture_Struct equip_hands;      // Equiptment: Hands visual
+               /*0000*/ Texture_Struct equip_legs;       // Equiptment: Legs visual
+               /*0000*/ Texture_Struct equip_feet;       // Equiptment: Boots visual
+               /*0000*/ Texture_Struct equip_primary;    // Equiptment: Main visual
+               /*0000*/ Texture_Struct equip_secondary;  // Equiptment: Off visual
            } equip;
-           /*0000*/ EquipStruct equipment[9];
+           /*0000*/ Texture_Struct equipment[9];
          };
 
 /*0000*/ //char title[0];  // only read if(hasTitleOrSuffix & 4)
@@ -928,13 +947,13 @@ struct BandolierItem_Struct_Old
 struct Bandolier_Struct
 {
 	char Name[1];	// Variable Length
-	BandolierItem_Struct Items[consts::BANDOLIER_ITEM_COUNT];
+	BandolierItem_Struct Items[profile::BANDOLIER_ITEM_COUNT];
 };
 
 struct Bandolier_Struct_Old
 {
 	char Name[32];
-	BandolierItem_Struct Items[consts::BANDOLIER_ITEM_COUNT];
+	BandolierItem_Struct Items[profile::BANDOLIER_ITEM_COUNT];
 };
 
 struct PotionBeltItem_Struct
@@ -954,12 +973,12 @@ struct PotionBeltItem_Struct_Old
 
 struct PotionBelt_Struct
 {
-	PotionBeltItem_Struct Items[consts::POTION_BELT_ITEM_COUNT];
+	PotionBeltItem_Struct Items[profile::POTION_BELT_SIZE];
 };
 
 struct PotionBelt_Struct_Old
 {
-	PotionBeltItem_Struct_Old Items[consts::POTION_BELT_ITEM_COUNT];
+	PotionBeltItem_Struct_Old Items[profile::POTION_BELT_SIZE];
 };
 
 struct GroupLeadershipAA_Struct {
@@ -1058,38 +1077,38 @@ union
 {
 	struct
 	{
-		/*00184*/ EquipStruct equip_helmet;		// Equipment: Helmet visual
-		/*00204*/ EquipStruct equip_chest;		// Equipment: Chest visual
-		/*00224*/ EquipStruct equip_arms;		// Equipment: Arms visual
-		/*00244*/ EquipStruct equip_bracers;	// Equipment: Wrist visual
-		/*00264*/ EquipStruct equip_hands;		// Equipment: Hands visual
-		/*00284*/ EquipStruct equip_legs;		// Equipment: Legs visual
-		/*00304*/ EquipStruct equip_feet;		// Equipment: Boots visual
-		/*00324*/ EquipStruct equip_primary;	// Equipment: Main visual
-		/*00344*/ EquipStruct equip_secondary;	// Equipment: Off visual
+		/*00184*/ Texture_Struct equip_helmet;		// Equipment: Helmet visual
+		/*00204*/ Texture_Struct equip_chest;		// Equipment: Chest visual
+		/*00224*/ Texture_Struct equip_arms;		// Equipment: Arms visual
+		/*00244*/ Texture_Struct equip_bracers;	// Equipment: Wrist visual
+		/*00264*/ Texture_Struct equip_hands;		// Equipment: Hands visual
+		/*00284*/ Texture_Struct equip_legs;		// Equipment: Legs visual
+		/*00304*/ Texture_Struct equip_feet;		// Equipment: Boots visual
+		/*00324*/ Texture_Struct equip_primary;	// Equipment: Main visual
+		/*00344*/ Texture_Struct equip_secondary;	// Equipment: Off visual
 		// Below slots are just guesses, but all 0s anyway...
-		/*00364*/ EquipStruct equip_charm;		// Equipment: Non-visual
-		/*00384*/ EquipStruct equip_ear1;		// Equipment: Non-visual
-		/*00404*/ EquipStruct equip_ear2;		// Equipment: Non-visual
-		/*00424*/ EquipStruct equip_face;		// Equipment: Non-visual
-		/*00444*/ EquipStruct equip_neck;		// Equipment: Non-visual
-		/*00464*/ EquipStruct equip_shoulder;	// Equipment: Non-visual
-		/*00484*/ EquipStruct equip_bracer2;	// Equipment: Non-visual
-		/*00504*/ EquipStruct equip_range;		// Equipment: Non-visual
-		/*00524*/ EquipStruct equip_ring1;		// Equipment: Non-visual
-		/*00544*/ EquipStruct equip_ring2;		// Equipment: Non-visual
-		/*00564*/ EquipStruct equip_waist;		// Equipment: Non-visual
-		/*00584*/ EquipStruct equip_powersource;// Equipment: Non-visual
-		/*00604*/ EquipStruct equip_ammo;		// Equipment: Non-visual
+		/*00364*/ Texture_Struct equip_charm;		// Equipment: Non-visual
+		/*00384*/ Texture_Struct equip_ear1;		// Equipment: Non-visual
+		/*00404*/ Texture_Struct equip_ear2;		// Equipment: Non-visual
+		/*00424*/ Texture_Struct equip_face;		// Equipment: Non-visual
+		/*00444*/ Texture_Struct equip_neck;		// Equipment: Non-visual
+		/*00464*/ Texture_Struct equip_shoulder;	// Equipment: Non-visual
+		/*00484*/ Texture_Struct equip_bracer2;	// Equipment: Non-visual
+		/*00504*/ Texture_Struct equip_range;		// Equipment: Non-visual
+		/*00524*/ Texture_Struct equip_ring1;		// Equipment: Non-visual
+		/*00544*/ Texture_Struct equip_ring2;		// Equipment: Non-visual
+		/*00564*/ Texture_Struct equip_waist;		// Equipment: Non-visual
+		/*00584*/ Texture_Struct equip_powersource;// Equipment: Non-visual
+		/*00604*/ Texture_Struct equip_ammo;		// Equipment: Non-visual
 	} equip;
-	/*00184*/ EquipStruct equipment[22];		// Total Slots
+	/*00184*/ Texture_Struct equipment[22];		// Total Slots
 };
 /*00624*/ uint32 equip2_count;			// Seen 9
-/*00628*/ EquipStruct equipment2[_MaterialCount];	// Appears to be Visible slots, but all 0s
+/*00628*/ Texture_Struct equipment2[EQ::textures::materialCount];	// Appears to be Visible slots, but all 0s
 /*00808*/ uint32 tint_count;			// Seen 9
-/*00812*/ Color_Struct item_tint[_MaterialCount];	// RR GG BB 00
+/*00812*/ Color_Struct item_tint[EQ::textures::materialCount];	// RR GG BB 00
 /*00848*/ uint32 tint_count2;			// Seen 9
-/*00852*/ Color_Struct item_tint2[_MaterialCount];	// RR GG BB 00
+/*00852*/ Color_Struct item_tint2[EQ::textures::materialCount];	// RR GG BB 00
 /*00888*/ uint8   haircolor;			// Player hair color
 /*00889*/ uint8   beardcolor;			// Player beard color
 /*00890*/ uint32 unknown_rof5;			//
@@ -1169,7 +1188,7 @@ union
 /*12949*/ uint32 aapoints;				// Unspent AA points - Seen 1
 /*12953*/ uint16 unknown_rof20;			//
 /*12955*/ uint32 bandolier_count;		// Seen 20
-/*12959*/ Bandolier_Struct bandoliers[consts::BANDOLIERS_SIZE]; // [20] 740 bytes (Variable Name Sizes) - bandolier contents
+/*12959*/ Bandolier_Struct bandoliers[profile::BANDOLIERS_SIZE]; // [20] 740 bytes (Variable Name Sizes) - bandolier contents
 /*13699*/ uint32 potionbelt_count;		// Seen 5
 /*13703*/ PotionBelt_Struct potionbelt;	// [5] 45 bytes potion belt - (Variable Name Sizes)
 /*13748*/ int32 unknown_rof21;			// Seen -1
@@ -4279,7 +4298,7 @@ struct SendAA_Struct {
 /*0104*/	uint32 special_category;
 /*0108*/	uint8 shroud;
 /*0109*/	uint8 unknown109;
-/*0110*/	uint8 layonhands; // 1 for lay on hands -- doesn't seem to matter?
+/*0110*/	uint8 reset_on_death; // timer is reset on death
 /*0111*/	uint8 unknown111;
 /*0112*/	uint32 total_abilities;
 /*0116*/	AA_Ability abilities[0];
@@ -4954,4 +4973,4 @@ struct MercenaryMerchantResponse_Struct {
 	};	//end namespace structs
 };	//end namespace TDS
 
-#endif /*TDS_STRUCTS_H_*/
+#endif /*COMMON_TDS_STRUCTS_H*/

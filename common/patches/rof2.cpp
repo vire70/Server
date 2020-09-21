@@ -1562,7 +1562,7 @@ namespace RoF2
 		uchar* __emu_buffer = in->pBuffer;
 
 		ItemPacket_Struct* old_item_pkt = (ItemPacket_Struct*)__emu_buffer;
-		EQ::InternalSerializedItem_Struct* int_struct = (EQ::InternalSerializedItem_Struct*)(&__emu_buffer[4]);
+		EQ::InternalSerializedItem_Struct* int_struct = (EQ::InternalSerializedItem_Struct*)(old_item_pkt->SerializedItem);
 
 		EQ::OutBuffer ob;
 		EQ::OutBuffer::pos_type last_pos = ob.tellp();

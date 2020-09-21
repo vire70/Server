@@ -19,8 +19,8 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 
 */
 
-#ifndef TDS_CONSTANTS_H_
-#define TDS_CONSTANTS_H_
+#ifndef COMMON_TDS_CONSTANTS_H
+#define COMMON_TDS_CONSTANTS_H
 
 #include "../types.h"
 
@@ -204,7 +204,7 @@ namespace TDS {
 
 };	//end namespace TDS
 
-#endif /*TDS_CONSTANTS_H_*/
+#endif /*COMMON_TDS_CONSTANTS_H*/
 
 /*
 TDS Notes:

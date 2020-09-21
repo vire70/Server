@@ -104,6 +104,14 @@ static const EQ::constants::LookupEntry constants_static_lookup_entries[EQ::vers
 		RoF2::constants::EXPANSIONS_MASK,
 		RoF2::constants::CHARACTER_CREATION_LIMIT,
 		RoF2::constants::SAY_LINK_BODY_SIZE
+	),
+	/*[ClientVersion::TDS] =*/
+	EQ::constants::LookupEntry(
+		TDS::constants::EXPANSION,
+		TDS::constants::EXPANSION_BIT,
+		TDS::constants::EXPANSIONS_MASK,
+		TDS::constants::CHARACTER_CREATION_LIMIT,
+		TDS::constants::SAY_LINK_BODY_SIZE
 	)
 };
 
@@ -369,6 +377,33 @@ static const EQ::inventory::LookupEntry inventory_static_lookup_entries[EQ::vers
 		RoF2::inventory::AllowClickCastFromBag,
 		RoF2::inventory::ConcatenateInvTypeLimbo,
 		RoF2::inventory::AllowOverLevelEquipment
+	),
+	/*[MobVersion::TDS] =*/
+	EQ::inventory::LookupEntry(
+		EQ::inventory::LookupEntry::InventoryTypeSize_Struct(
+			EQ::invtype::POSSESSIONS_SIZE,		TDS::invtype::BANK_SIZE,					TDS::invtype::SHARED_BANK_SIZE,
+			TDS::invtype::TRADE_SIZE,			TDS::invtype::WORLD_SIZE,					TDS::invtype::LIMBO_SIZE,
+			TDS::invtype::TRIBUTE_SIZE,			TDS::invtype::TROPHY_TRIBUTE_SIZE,			TDS::invtype::GUILD_TRIBUTE_SIZE,
+			TDS::invtype::MERCHANT_SIZE,		TDS::invtype::DELETED_SIZE,					TDS::invtype::CORPSE_SIZE,
+			TDS::invtype::BAZAAR_SIZE,			TDS::invtype::INSPECT_SIZE,					TDS::invtype::REAL_ESTATE_SIZE,
+			TDS::invtype::VIEW_MOD_PC_SIZE,		TDS::invtype::VIEW_MOD_BANK_SIZE,			TDS::invtype::VIEW_MOD_SHARED_BANK_SIZE,
+			TDS::invtype::VIEW_MOD_LIMBO_SIZE,	TDS::invtype::ALT_STORAGE_SIZE,				TDS::invtype::ARCHIVED_SIZE,
+			TDS::invtype::MAIL_SIZE,			TDS::invtype::GUILD_TROPHY_TRIBUTE_SIZE,	TDS::invtype::KRONO_SIZE,
+			TDS::invtype::OTHER_SIZE
+		),
+
+		TDS::invslot::EQUIPMENT_BITMASK,
+		TDS::invslot::GENERAL_BITMASK,
+		TDS::invslot::CURSOR_BITMASK,
+		TDS::invslot::POSSESSIONS_BITMASK,
+		TDS::invslot::CORPSE_BITMASK,
+		TDS::invbag::SLOT_COUNT,
+		TDS::invaug::SOCKET_COUNT,
+
+		TDS::inventory::AllowEmptyBagInBag,
+		TDS::inventory::AllowClickCastFromBag,
+		TDS::inventory::ConcatenateInvTypeLimbo,
+		TDS::inventory::AllowOverLevelEquipment
 	),
 	/*[MobVersion::NPC] =*/
 	EQ::inventory::LookupEntry(
@@ -747,6 +782,33 @@ static const EQ::inventory::LookupEntry inventory_static_lookup_entries[EQ::vers
 		false,
 		false,
 		false
+	),
+	/*[MobVersion::OfflineTDS] =*/
+	EQ::inventory::LookupEntry(
+		EQ::inventory::LookupEntry::InventoryTypeSize_Struct(
+			TDS::INULL,							TDS::INULL,							TDS::INULL,
+			TDS::invtype::TRADE_SIZE,			TDS::INULL,							TDS::INULL,
+			TDS::INULL,							TDS::INULL,							TDS::INULL,
+			TDS::invtype::MERCHANT_SIZE,		TDS::INULL,							TDS::INULL,
+			TDS::invtype::BAZAAR_SIZE,			TDS::invtype::INSPECT_SIZE,			TDS::INULL,
+			TDS::invtype::VIEW_MOD_PC_SIZE,		TDS::invtype::VIEW_MOD_BANK_SIZE,	TDS::invtype::VIEW_MOD_SHARED_BANK_SIZE,
+			TDS::invtype::VIEW_MOD_LIMBO_SIZE,	TDS::INULL,							TDS::INULL,
+			TDS::INULL,							TDS::INULL,							TDS::INULL,
+			TDS::INULL
+		),
+
+		TDS::INULL,
+		TDS::INULL,
+		TDS::INULL,
+		TDS::INULL,
+		TDS::INULL,
+		TDS::invbag::SLOT_COUNT,
+		TDS::invaug::SOCKET_COUNT,
+
+		false,
+		false,
+		false,
+		false
 	)
 };
 
@@ -852,6 +914,7 @@ void EQ::inventory::InitializeDynamicLookups() {
 
 		// special case gm exclusions based on known behaviors
 		switch (iter) {
+		// case static_cast<uint32>(versions::MobVersion::TDS) : TODO - Check this
 		case static_cast<uint32>(versions::MobVersion::RoF2) :
 		case static_cast<uint32>(versions::MobVersion::RoF) :
 			// if bank size is not altered on these clients, then static will suffice
@@ -994,6 +1057,10 @@ static const EQ::behavior::LookupEntry behavior_static_lookup_entries[EQ::versio
 	EQ::behavior::LookupEntry(
 		RoF2::behavior::CoinHasWeight
 	),
+	/*[MobVersion::TDS] =*/
+	EQ::behavior::LookupEntry(
+		TDS::behavior::CoinHasWeight
+	),
 	/*[MobVersion::NPC] =*/
 	EQ::behavior::LookupEntry(
 		EQ::behavior::CoinHasWeight
@@ -1049,6 +1116,10 @@ static const EQ::behavior::LookupEntry behavior_static_lookup_entries[EQ::versio
 	/*[MobVersion::OfflineRoF2] =*/
 	EQ::behavior::LookupEntry(
 		RoF2::behavior::CoinHasWeight
+	),
+	/*[MobVersion::OfflineTDS] =*/
+	EQ::behavior::LookupEntry(
+		TDS::behavior::CoinHasWeight
 	)
 };
 
@@ -1202,6 +1273,19 @@ static const EQ::spells::LookupEntry spells_static_lookup_entries[EQ::versions::
 		RoF2::spells::NPC_BUFFS,
 		RoF2::spells::PET_BUFFS,
 		RoF2::spells::MERC_BUFFS
+	),
+	/*[ClientVersion::TDS] =*/
+	EQ::spells::LookupEntry(
+		TDS::spells::SPELL_ID_MAX,
+		TDS::spells::SPELLBOOK_SIZE,
+		UF::spells::SPELL_GEM_COUNT, // client translators are setup to allow the max value a client supports..however, the top 4 indices are not valid in this case
+		TDS::spells::LONG_BUFFS,
+		TDS::spells::SHORT_BUFFS,
+		TDS::spells::DISC_BUFFS,
+		TDS::spells::TOTAL_BUFFS,
+		TDS::spells::NPC_BUFFS,
+		TDS::spells::PET_BUFFS,
+		TDS::spells::MERC_BUFFS
 	)
 };
 
