@@ -102,6 +102,7 @@ SET(common_sources
 	patches/rof2.cpp
 	patches/rof2_limits.cpp
 	patches/tds.cpp
+	patches/tds_limits.cpp
 	patches/titanium.cpp
 	patches/titanium_limits.cpp
 	patches/uf.cpp
@@ -588,8 +589,8 @@ SET(common_headers
 	patches/rof2_ops.h
 	patches/rof2_structs.h
 	patches/tds.h
+	patches/tds_limits.h
 	patches/tds_constants.h
-	patches/tds_itemfields.h
 	patches/tds_ops.h
 	patches/tds_structs.h
 	patches/titanium.h
@@ -676,7 +677,7 @@ SOURCE_GROUP(Patches FILES
 	patches/rof2_ops.h
 	patches/rof2_structs.h
 	patches/tds.h
-	patches/tds_itemfields.h
+	patches/tds_limits.h
 	patches/tds_ops.h
 	patches/tds_constants.h
 	patches/tds_structs.h
@@ -698,6 +699,8 @@ SOURCE_GROUP(Patches FILES
 	patches/rof2.cpp
 	patches/rof2_limits.cpp
 	patches/tds.cpp
+	patches/tds_limits.cpp
+	patches/tds_constants.cpp
 	patches/titanium.cpp
 	patches/titanium_limits.cpp
 	patches/uf.cpp
