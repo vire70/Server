@@ -605,6 +605,8 @@ void EQ::Net::DaybreakConnection::ProcessDecodedPacket(const Packet &p)
 					ProcessDecodedPacket(StaticPacket(current, subpacket_length));
 					current += subpacket_length;
 				}
+
+				break;
 			}
 
 			case OP_SessionRequest:
@@ -1101,7 +1103,7 @@ void EQ::Net::DaybreakConnection::ProcessResend(int stream)
 				InternalBufferedSend(p);
 				entry.second.last_sent = now;
 				entry.second.times_resent++;
-				entry.second.resend_delay = EQEmu::Clamp(entry.second.resend_delay * 2, m_owner->m_options.resend_delay_min, m_owner->m_options.resend_delay_max);
+				entry.second.resend_delay = EQ::Clamp(entry.second.resend_delay * 2, m_owner->m_options.resend_delay_min, m_owner->m_options.resend_delay_max);
 				resends++;
 			}
 		}
@@ -1130,7 +1132,7 @@ void EQ::Net::DaybreakConnection::ProcessResend(int stream)
 				InternalBufferedSend(p);
 				entry.second.last_sent = now;
 				entry.second.times_resent++;
-				entry.second.resend_delay = EQEmu::Clamp(entry.second.resend_delay * 2, m_owner->m_options.resend_delay_min, m_owner->m_options.resend_delay_max);
+				entry.second.resend_delay = EQ::Clamp(entry.second.resend_delay * 2, m_owner->m_options.resend_delay_min, m_owner->m_options.resend_delay_max);
 				resends++;
 			}
 		}
@@ -1182,7 +1184,7 @@ void EQ::Net::DaybreakConnection::OutOfOrderAck(int stream, uint16_t seq)
 void EQ::Net::DaybreakConnection::UpdateDataBudget(double budget_add)
 {
 	auto outgoing_data_rate = m_owner->m_options.outgoing_data_rate;
-	m_outgoing_budget = EQEmu::ClampUpper(m_outgoing_budget + budget_add, outgoing_data_rate);
+	m_outgoing_budget = EQ::ClampUpper(m_outgoing_budget + budget_add, outgoing_data_rate);
 }
 
 void EQ::Net::DaybreakConnection::SendAck(int stream_id, uint16_t seq)
@@ -1403,7 +1405,7 @@ void EQ::Net::DaybreakConnection::InternalQueuePacket(Packet &p, int stream_id, 
 		sent.last_sent = Clock::now();
 		sent.first_sent = Clock::now();
 		sent.times_resent = 0;
-		sent.resend_delay = EQEmu::Clamp(
+		sent.resend_delay = EQ::Clamp(
 			static_cast<size_t>((m_rolling_ping * m_owner->m_options.resend_delay_factor) + m_owner->m_options.resend_delay_ms), 
 			m_owner->m_options.resend_delay_min, 
 			m_owner->m_options.resend_delay_max);
@@ -1435,7 +1437,7 @@ void EQ::Net::DaybreakConnection::InternalQueuePacket(Packet &p, int stream_id, 
 			sent.last_sent = Clock::now();
 			sent.first_sent = Clock::now();
 			sent.times_resent = 0;
-			sent.resend_delay = EQEmu::Clamp(
+			sent.resend_delay = EQ::Clamp(
 				static_cast<size_t>((m_rolling_ping * m_owner->m_options.resend_delay_factor) + m_owner->m_options.resend_delay_ms),
 				m_owner->m_options.resend_delay_min,
 				m_owner->m_options.resend_delay_max);
@@ -1459,7 +1461,7 @@ void EQ::Net::DaybreakConnection::InternalQueuePacket(Packet &p, int stream_id, 
 		sent.last_sent = Clock::now();
 		sent.first_sent = Clock::now();
 		sent.times_resent = 0;
-		sent.resend_delay = EQEmu::Clamp(
+		sent.resend_delay = EQ::Clamp(
 			static_cast<size_t>((m_rolling_ping * m_owner->m_options.resend_delay_factor) + m_owner->m_options.resend_delay_ms),
 			m_owner->m_options.resend_delay_min,
 			m_owner->m_options.resend_delay_max);

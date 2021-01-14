@@ -115,6 +115,12 @@ namespace Logs {
 		Flee,
 		Aura,
 		HotReload,
+		Merchants,
+		ZonePoints,
+		Loot,
+		Expeditions,
+		DynamicZones,
+		Group,
 		MaxCategoryID /* Don't Remove this */
 	};
 
@@ -189,6 +195,12 @@ namespace Logs {
 		"Flee",
 		"Aura",
 		"HotReload",
+		"Merchants",
+		"ZonePoints",
+		"Loot",
+		"Expeditions",
+		"DynamicZones",
+		"Group",
 	};
 }
 

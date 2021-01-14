@@ -139,6 +139,8 @@ public:
 	inline bool HasFreeSharedTaskSlot() const { return shared_task_id == 0; }
 	inline void SetSharedTask(SharedTask *in) { m_shared_task = in; }
 	inline SharedTask *GetSharedTask() const { return m_shared_task; }
+	void SetPendingExpeditionInvite(ServerPacket* pack) { p_pending_expedition_invite.reset(pack->Copy()); };
+	std::unique_ptr<ServerPacket> GetPendingExpeditionInvite() { return std::move(p_pending_expedition_invite); }
 
 private:
 	void	ClearVars(bool iAll = false);
@@ -191,6 +193,8 @@ private:
 
 	// Tell Queue -- really a vector :D
 	std::vector<ServerChannelMessage_Struct *> tell_queue;
+
+	std::unique_ptr<ServerPacket> p_pending_expedition_invite = nullptr;
 };
 
 #endif /*CLIENTENTRY_H_*/
