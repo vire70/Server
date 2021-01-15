@@ -276,7 +276,7 @@ bool SharedTaskManager::LoadSharedTasks(int single_task)
 				 "`dest_x`, `dest_y`, `dest_z`, `dest_h` FROM `tasks` WHERE `id` = %i AND `type` = %i",
 				 single_task, static_cast<int>(TaskType::Shared));
 	}
-	auto results = database.QueryDatabase(query);
+	auto results = content_db.QueryDatabase(query);
 	if (!results.Success()) {
 		return false;
 	}
@@ -336,7 +336,7 @@ bool SharedTaskManager::LoadSharedTasks(int single_task)
 		    "`zones`, `optional` FROM `task_activities` WHERE `taskid` = %i AND `activityid` < %i AND `taskid` "
 		    "IN (SELECT `id` FROM `tasks` WHERE `type` = %i) ORDER BY taskid, activityid ASC",
 		    single_task, MAXACTIVITIESPERTASK, static_cast<int>(TaskType::Shared));
-	results = database.QueryDatabase(query);
+	results = content_db.QueryDatabase(query);
 	if (!results.Success()) {
 		return false;
 	}

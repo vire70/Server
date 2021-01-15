@@ -316,7 +316,7 @@ bool TaskManager::LoadReplayGroups()
 	replay_groups.clear();
 	std::string query = "SELECT `id`, `name`, `duration` FROM `task_replay_groups` WHERE `id` > 0 ORDER BY `id` ASC";
 
-	auto results = database.QueryDatabase(query);
+	auto results = content_db.QueryDatabase(query);
 
 	if (!results.Success())
 		return false;
