@@ -1197,10 +1197,6 @@ void Mob::FillSpawnStruct(NewSpawn_Struct* ns, Mob* ForWho)
 	else
 		ns->spawn.flymode = flymode;
 
-	if(IsBoat()) {
-		ns->spawn.flymode = GravityBehavior::Floating;
-	}
-
 	ns->spawn.lastName[0] = '\0';
 
 	strn0cpy(ns->spawn.lastName, lastname, sizeof(ns->spawn.lastName));
@@ -1738,6 +1734,7 @@ void Mob::GMMove(float x, float y, float z, float heading, bool SendUpdate) {
 	m_Position.x = x;
 	m_Position.y = y;
 	m_Position.z = z;
+	SetHeading(heading);
 	mMovementManager->SendCommandToClients(this, 0.0, 0.0, 0.0, 0.0, 0, ClientRangeAny);
 
 	if (IsNPC()) {
@@ -2824,6 +2821,11 @@ bool Mob::HateSummon() {
 }
 
 void Mob::FaceTarget(Mob* mob_to_face /*= 0*/) {
+
+	if (IsBoat()) {
+		return;
+	}
+
 	Mob* faced_mob = mob_to_face;
 	if(!faced_mob) {
 		if(!GetTarget()) {
@@ -3135,6 +3137,12 @@ void Mob::ExecWeaponProc(const EQ::ItemInstance *inst, uint16 spell_id, Mob *on,
 		//This is so 65535 doesn't get passed to the client message and to logs because it is not relavant information for debugging.
 		return;
 	}
+
+	if (on->GetSpecialAbility(IMMUNE_DAMAGE_CLIENT) && IsClient())
+		return;
+
+	if (on->GetSpecialAbility(IMMUNE_DAMAGE_NPC) && IsNPC())
+		return;
 
 	if (IsNoCast())
 		return;

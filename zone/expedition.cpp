@@ -781,11 +781,19 @@ bool Expedition::ProcessAddConflicts(Client* leader_client, Client* add_client, 
 		}
 	}
 
-	// swapping ignores the max player count check since it's a 1:1 change
-	if (!swapping && GetMemberCount() >= m_max_players)
+	// member swapping integrity is handled by invite response
+	if (!swapping)
 	{
-		SendLeaderMessage(leader_client, Chat::Red, DZADD_EXCEED_MAX, { fmt::format_int(m_max_players).str() });
-		has_conflict = true;
+		auto member_count = ExpeditionDatabase::GetMemberCount(m_id);
+		if (member_count == 0)
+		{
+			has_conflict = true;
+		}
+		else if (member_count >= m_max_players)
+		{
+			SendLeaderMessage(leader_client, Chat::Red, DZADD_EXCEED_MAX, { fmt::format_int(m_max_players).str() });
+			has_conflict = true;
+		}
 	}
 
 	auto invite_id = add_client->GetPendingExpeditionInviteID();
@@ -834,9 +842,13 @@ void Expedition::DzInviteResponse(Client* add_client, bool accepted, const std::
 	}
 
 	// error if swapping and character was already removed before the accept
-	if (was_swap_invite && !HasMember(swap_remove_name))
+	if (was_swap_invite)
 	{
-		has_conflicts = true;
+		auto swap_member = GetMemberData(swap_remove_name);
+		if (!swap_member.IsValid() || !ExpeditionDatabase::HasMember(m_id, swap_member.char_id))
+		{
+			has_conflicts = true;
+		}
 	}
 
 	if (has_conflicts)

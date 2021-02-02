@@ -53,6 +53,8 @@ public:
 	void SetBaseClass(int v);
 	void SetBaseRace(int v);
 	void SetBaseGender(int v);
+	int GetClassBitmask();
+	int GetRaceBitmask();
 	int GetBaseFace();
 	int GetLanguageSkill(int skill_id);
 	const char *GetLastName();
@@ -150,6 +152,15 @@ public:
 	void UnmemSpellAll(bool update_client);
 	uint16 FindMemmedSpellBySlot(int slot);
 	int MemmedCount();
+	luabind::object GetLearnableDisciplines(lua_State* L);
+	luabind::object GetLearnableDisciplines(lua_State* L, uint8 min_level);
+	luabind::object GetLearnableDisciplines(lua_State* L, uint8 min_level, uint8 max_level);
+	luabind::object GetLearnedDisciplines(lua_State* L);
+	luabind::object GetMemmedSpells(lua_State* L);
+	luabind::object GetScribedSpells(lua_State* L);
+	luabind::object GetScribeableSpells(lua_State* L);
+	luabind::object GetScribeableSpells(lua_State* L, uint8 min_level);
+	luabind::object GetScribeableSpells(lua_State* L, uint8 min_level, uint8 max_level);
 	void ScribeSpell(int spell_id, int slot);
 	void ScribeSpell(int spell_id, int slot, bool update_client);
 	void UnscribeSpell(int slot);
@@ -211,6 +222,7 @@ public:
 	uint32 GetDisciplineTimer(uint32 timer_id);
 	void ResetDisciplineTimer(uint32 timer_id);
 	bool UseDiscipline(int spell_id, int target_id);
+	bool HasDisciplineLearned(uint16 spell_id);
 	int GetCharacterFactionLevel(int faction_id);
 	void SetZoneFlag(int zone_id);
 	void ClearZoneFlag(int zone_id);
