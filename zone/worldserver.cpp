@@ -80,14 +80,14 @@ WorldServer::~WorldServer() {
 
 void WorldServer::Connect()
 {
-	m_connection.reset(new EQ::Net::ServertalkClient(Config->WorldIP, Config->WorldTCPPort, false, "Zone", Config->SharedKey));
+	m_connection = std::make_unique<EQ::Net::ServertalkClient>(Config->WorldIP, Config->WorldTCPPort, false, "Zone", Config->SharedKey);
 	m_connection->OnConnect([this](EQ::Net::ServertalkClient *client) {
 		OnConnected();
 	});
 
 	m_connection->OnMessage(std::bind(&WorldServer::HandleMessage, this, std::placeholders::_1, std::placeholders::_2));
 
-	m_keepalive.reset(new EQ::Timer(2500, true, std::bind(&WorldServer::OnKeepAlive, this, std::placeholders::_1)));
+	m_keepalive = std::make_unique<EQ::Timer>(2500, true, std::bind(&WorldServer::OnKeepAlive, this, std::placeholders::_1));
 }
 
 bool WorldServer::SendPacket(ServerPacket *pack)
@@ -877,7 +877,7 @@ void WorldServer::HandleMessage(uint16 opcode, const EQ::Net::Packet &p)
 			if (gl->zoneid == zone->GetZoneID() && gl->instance_id == zone->GetInstanceID())
 				break;
 
-			entity_list.SendGroupLeave(gl->gid, gl->member_name, gl->checkleader);
+			entity_list.SendGroupLeave(gl->gid, gl->member_name);
 		}
 		break;
 	}
@@ -1016,7 +1016,7 @@ void WorldServer::HandleMessage(uint16 opcode, const EQ::Net::Packet &p)
 				if (group->GetID() != 0)
 					entity_list.AddGroup(group, groupid);
 				else
-					group = nullptr;
+					safe_delete(group);
 			}
 
 			if (group)
@@ -1110,17 +1110,6 @@ void WorldServer::HandleMessage(uint16 opcode, const EQ::Net::Packet &p)
 				break;
 
 			entity_list.ForceGroupUpdate(fgu->gid);
-		}
-		break;
-	}
-
-	case ServerOP_ChangeGroupLeader: {
-		ServerGroupLeader_Struct *fgu = (ServerGroupLeader_Struct *) pack->pBuffer;
-		if (zone) {
-			if (fgu->zoneid == zone->GetZoneID()) {
-				break;
-			}
-			entity_list.SendGroupLeader(fgu->gid, fgu->leader_name, fgu->oldleader_name);
 		}
 		break;
 	}
@@ -2455,7 +2444,7 @@ void WorldServer::HandleMessage(uint16 opcode, const EQ::Net::Packet &p)
 		CZTaskDisablePlayer_Struct* CZUA = (CZTaskDisablePlayer_Struct*) pack->pBuffer;
 		auto client = entity_list.GetClientByCharID(CZUA->character_id);
 		if (client) {
-			client->DisableTask(1, (int*) CZUA->task_id);
+			client->DisableTask(1, reinterpret_cast<int *>(CZUA->task_id));
 		}
 		break;
 	}
@@ -2467,7 +2456,7 @@ void WorldServer::HandleMessage(uint16 opcode, const EQ::Net::Packet &p)
 			for (int member_index = 0; member_index < MAX_GROUP_MEMBERS; member_index++) {
 				if (client_group->members[member_index] && client_group->members[member_index]->IsClient()) {
 					auto group_member = client_group->members[member_index]->CastToClient();
-					group_member->DisableTask(1, (int*) CZUA->task_id);
+					group_member->DisableTask(1, reinterpret_cast<int *>(CZUA->task_id));
 				}
 			}
 		}
@@ -2481,7 +2470,7 @@ void WorldServer::HandleMessage(uint16 opcode, const EQ::Net::Packet &p)
 			for (int member_index = 0; member_index < MAX_RAID_MEMBERS; member_index++) {
 				if (client_raid->members[member_index].member && client_raid->members[member_index].member->IsClient()) {
 					auto raid_member = client_raid->members[member_index].member->CastToClient();
-					raid_member->DisableTask(1, (int*) CZUA->task_id);
+					raid_member->DisableTask(1, reinterpret_cast<int *>(CZUA->task_id));
 				}
 			}
 		}
@@ -2492,7 +2481,7 @@ void WorldServer::HandleMessage(uint16 opcode, const EQ::Net::Packet &p)
 		CZTaskDisableGuild_Struct* CZUA = (CZTaskDisableGuild_Struct*) pack->pBuffer;
 		for (auto &client : entity_list.GetClientList()) {
 			if (client.second->GuildID() > 0 && client.second->GuildID() == CZUA->guild_id) {
-				client.second->DisableTask(1, (int*) CZUA->task_id);
+				client.second->DisableTask(1, reinterpret_cast<int *>(CZUA->task_id));
 			}
 		}
 		break;
@@ -2502,7 +2491,7 @@ void WorldServer::HandleMessage(uint16 opcode, const EQ::Net::Packet &p)
 		CZTaskEnablePlayer_Struct* CZUA = (CZTaskEnablePlayer_Struct*) pack->pBuffer;
 		auto client = entity_list.GetClientByCharID(CZUA->character_id);
 		if (client) {
-			client->EnableTask(1, (int*) CZUA->task_id);
+			client->EnableTask(1, reinterpret_cast<int *>(CZUA->task_id));
 		}
 		break;
 	}
@@ -2514,7 +2503,7 @@ void WorldServer::HandleMessage(uint16 opcode, const EQ::Net::Packet &p)
 			for (int member_index = 0; member_index < MAX_GROUP_MEMBERS; member_index++) {
 				if (client_group->members[member_index] && client_group->members[member_index]->IsClient()) {
 					auto group_member = client_group->members[member_index]->CastToClient();
-					group_member->EnableTask(1, (int*) CZUA->task_id);
+					group_member->EnableTask(1, reinterpret_cast<int *>(CZUA->task_id));
 				}
 			}
 		}
@@ -2528,7 +2517,7 @@ void WorldServer::HandleMessage(uint16 opcode, const EQ::Net::Packet &p)
 			for (int member_index = 0; member_index < MAX_RAID_MEMBERS; member_index++) {
 				if (client_raid->members[member_index].member && client_raid->members[member_index].member->IsClient()) {
 					auto raid_member = client_raid->members[member_index].member->CastToClient();
-					raid_member->EnableTask(1, (int*) CZUA->task_id);
+					raid_member->EnableTask(1, reinterpret_cast<int *>(CZUA->task_id));
 				}
 			}
 		}
@@ -2539,7 +2528,7 @@ void WorldServer::HandleMessage(uint16 opcode, const EQ::Net::Packet &p)
 		CZTaskEnableGuild_Struct* CZUA = (CZTaskEnableGuild_Struct*) pack->pBuffer;
 		for (auto &client : entity_list.GetClientList()) {
 			if (client.second->GuildID() > 0 && client.second->GuildID() == CZUA->guild_id) {
-				client.second->EnableTask(1, (int*) CZUA->task_id);
+				client.second->EnableTask(1, reinterpret_cast<int *>(CZUA->task_id));
 			}
 		}
 		break;
@@ -2666,7 +2655,7 @@ void WorldServer::HandleMessage(uint16 opcode, const EQ::Net::Packet &p)
 		for (auto &client : entity_list.GetClientList()) {
 			auto client_status = client.second->Admin();
 			if (client_status >= WWDT->min_status && (client_status <= WWDT->max_status || WWDT->max_status == 0)) {
-				client.second->DisableTask(1, (int *) WWDT->task_id);
+				client.second->DisableTask(1, reinterpret_cast<int *>(WWDT->task_id));
 			}
 		}
 		break;
@@ -2677,7 +2666,7 @@ void WorldServer::HandleMessage(uint16 opcode, const EQ::Net::Packet &p)
 		for (auto &client : entity_list.GetClientList()) {
 			auto client_status = client.second->Admin();
 			if (client_status >= WWET->min_status && (client_status <= WWET->max_status || WWET->max_status == 0)) {
-				client.second->EnableTask(1, (int *) WWET->task_id);
+				client.second->EnableTask(1, reinterpret_cast<int *>(WWET->task_id));
 			}
 		}
 		break;
@@ -3100,16 +3089,16 @@ void WorldServer::HandleReloadTasks(ServerPacket *pack)
 
 		if (rts->Parameter == 0) {
 			Log(Logs::General, Logs::Tasks, "[GLOBALLOAD] Reload ALL tasks");
-			safe_delete(taskmanager);
-			taskmanager = new TaskManager;
-			taskmanager->LoadTasks();
+			safe_delete(task_manager);
+			task_manager = new TaskManager;
+			task_manager->LoadTasks();
 			if (zone)
-				taskmanager->LoadProximities(zone->GetZoneID());
+				task_manager->LoadProximities(zone->GetZoneID());
 			entity_list.ReloadAllClientsTaskState();
 		}
 		else {
 			Log(Logs::General, Logs::Tasks, "[GLOBALLOAD] Reload only task %i", rts->Parameter);
-			taskmanager->LoadTasks(rts->Parameter);
+			task_manager->LoadTasks(rts->Parameter);
 			entity_list.ReloadAllClientsTaskState(rts->Parameter);
 		}
 
@@ -3118,18 +3107,18 @@ void WorldServer::HandleReloadTasks(ServerPacket *pack)
 	case RELOADTASKPROXIMITIES:
 		if (zone) {
 			Log(Logs::General, Logs::Tasks, "[GLOBALLOAD] Reload task proximities");
-			taskmanager->LoadProximities(zone->GetZoneID());
+			task_manager->LoadProximities(zone->GetZoneID());
 		}
 		break;
 
 	case RELOADTASKGOALLISTS:
 		Log(Logs::General, Logs::Tasks, "[GLOBALLOAD] Reload task goal lists");
-		taskmanager->ReloadGoalLists();
+		task_manager->ReloadGoalLists();
 		break;
 
 	case RELOADTASKSETS:
 		Log(Logs::General, Logs::Tasks, "[GLOBALLOAD] Reload task sets");
-		taskmanager->LoadTaskSets();
+		task_manager->LoadTaskSets();
 		break;
 
 	default:

@@ -1090,6 +1090,7 @@ uint16 QuestManager::scribespells(uint8 max_level, uint8 min_level) {
 	int book_slot = initiator->GetNextAvailableSpellBookSlot();
 	std::vector<int> spell_ids = initiator->GetScribeableSpells(min_level, max_level);
 	int spell_count = spell_ids.size();
+	int spells_learned = 0;
 	if (spell_count > 0) {
 		for (auto spell_id : spell_ids) {
 			if (book_slot == -1) {			
@@ -1099,11 +1100,21 @@ uint16 QuestManager::scribespells(uint8 max_level, uint8 min_level) {
 				);
 				break;
 			}
+			
+			if (initiator->HasSpellScribed(spell_id))
+				continue;
+				
 			initiator->ScribeSpell(spell_id, book_slot);
 			book_slot = initiator->GetNextAvailableSpellBookSlot(book_slot);
+			spells_learned++;
 		}
 	}
-	return spell_count;
+
+	if (spells_learned > 0) {
+		std::string spell_message = (spells_learned == 1 ? "a new spell" : fmt::format("{} new spells", spells_learned));
+		initiator->Message(Chat::White, fmt::format("You have learned {}!", spell_message).c_str());
+	}
+	return spells_learned;
 }
 
 uint16 QuestManager::traindiscs(uint8 max_level, uint8 min_level) {
@@ -1111,24 +1122,30 @@ uint16 QuestManager::traindiscs(uint8 max_level, uint8 min_level) {
 	int character_id = initiator->CharacterID();
 	std::vector<int> spell_ids = initiator->GetLearnableDisciplines(min_level, max_level);
 	int discipline_count = spell_ids.size();
-	bool discipline_learned = false;
+	int disciplines_learned = 0;
 	if (discipline_count > 0) {
 		for (auto spell_id : spell_ids) {
+			if (initiator->HasDisciplineLearned(spell_id))
+				continue;
+
 			for (uint32 index = 0; index < MAX_PP_DISCIPLINES; index++) {
 				if (initiator->GetPP().disciplines.values[index] == 0) {
 					initiator->GetPP().disciplines.values[index] = spell_id;
 					database.SaveCharacterDisc(character_id, index, spell_id);
-					initiator->Message(Chat::White, "You have learned a new discipline!");
-					discipline_learned = true;
+					disciplines_learned++;
+					break;
 				}
 			}
 		}
 	}
 
-	if (discipline_learned)
+	if (disciplines_learned > 0) {
+		std::string discipline_message = (disciplines_learned == 1 ? "a new discipline" : fmt::format("{} new disciplines", disciplines_learned));
 		initiator->SendDisciplineUpdate();
+		initiator->Message(Chat::White, fmt::format("You have learned {}!", discipline_message).c_str());
+	}
 
-	return discipline_count;
+	return disciplines_learned;
 }
 
 void QuestManager::unscribespells() {
@@ -2223,27 +2240,27 @@ bool QuestManager::createBot(const char *name, const char *lastname, uint8 level
 
 void QuestManager::taskselector(int taskcount, int *tasks) {
 	QuestManagerCurrentQuestVars();
-	if(RuleB(TaskSystem, EnableTaskSystem) && initiator && owner && taskmanager)
+	if(RuleB(TaskSystem, EnableTaskSystem) && initiator && owner && task_manager)
 		initiator->TaskQuestSetSelector(owner, taskcount, tasks);
 }
 void QuestManager::enabletask(int taskcount, int *tasks) {
 	QuestManagerCurrentQuestVars();
 
-	if(RuleB(TaskSystem, EnableTaskSystem) && initiator && taskmanager)
+	if(RuleB(TaskSystem, EnableTaskSystem) && initiator && task_manager)
 		initiator->EnableTask(taskcount, tasks);
 }
 
 void QuestManager::disabletask(int taskcount, int *tasks) {
 	QuestManagerCurrentQuestVars();
 
-	if(RuleB(TaskSystem, EnableTaskSystem) && initiator && taskmanager)
+	if(RuleB(TaskSystem, EnableTaskSystem) && initiator && task_manager)
 		initiator->DisableTask(taskcount, tasks);
 }
 
 bool QuestManager::istaskenabled(int taskid) {
 	QuestManagerCurrentQuestVars();
 
-	if(RuleB(TaskSystem, EnableTaskSystem) && initiator && taskmanager)
+	if(RuleB(TaskSystem, EnableTaskSystem) && initiator && task_manager)
 		return initiator->IsTaskEnabled(taskid);
 
 	return false;
@@ -2252,7 +2269,7 @@ bool QuestManager::istaskenabled(int taskid) {
 void QuestManager::tasksetselector(int tasksetid) {
 	QuestManagerCurrentQuestVars();
 	Log(Logs::General, Logs::Tasks, "[UPDATE] TaskSetSelector called for task set %i", tasksetid);
-	if(RuleB(TaskSystem, EnableTaskSystem) && initiator && owner && taskmanager)
+	if(RuleB(TaskSystem, EnableTaskSystem) && initiator && owner && task_manager)
 		initiator->TaskSetSelector(owner, tasksetid);
 }
 
@@ -2341,8 +2358,8 @@ int QuestManager::enabledtaskcount(int taskset) {
 int QuestManager::firsttaskinset(int taskset) {
 	QuestManagerCurrentQuestVars();
 
-	if(RuleB(TaskSystem, EnableTaskSystem) && taskmanager)
-		return taskmanager->FirstTaskInSet(taskset);
+	if(RuleB(TaskSystem, EnableTaskSystem) && task_manager)
+		return task_manager->FirstTaskInSet(taskset);
 
 	return -1;
 }
@@ -2350,8 +2367,8 @@ int QuestManager::firsttaskinset(int taskset) {
 int QuestManager::lasttaskinset(int taskset) {
 	QuestManagerCurrentQuestVars();
 
-	if(RuleB(TaskSystem, EnableTaskSystem) && taskmanager)
-		return taskmanager->LastTaskInSet(taskset);
+	if(RuleB(TaskSystem, EnableTaskSystem) && task_manager)
+		return task_manager->LastTaskInSet(taskset);
 
 	return -1;
 }
@@ -2359,8 +2376,8 @@ int QuestManager::lasttaskinset(int taskset) {
 int QuestManager::nexttaskinset(int taskset, int taskid) {
 	QuestManagerCurrentQuestVars();
 
-	if(RuleB(TaskSystem, EnableTaskSystem) && taskmanager)
-		return taskmanager->NextTaskInSet(taskset, taskid);
+	if(RuleB(TaskSystem, EnableTaskSystem) && task_manager)
+		return task_manager->NextTaskInSet(taskset, taskid);
 
 	return -1;
 }
@@ -2412,8 +2429,8 @@ int QuestManager::completedtasksinset(int taskset) {
 bool QuestManager::istaskappropriate(int task) {
 	QuestManagerCurrentQuestVars();
 
-	if(RuleB(TaskSystem, EnableTaskSystem) && initiator && taskmanager)
-		return taskmanager->AppropriateLevel(task, initiator->GetLevel());
+	if(RuleB(TaskSystem, EnableTaskSystem) && initiator && task_manager)
+		return task_manager->ValidateLevel(task, initiator->GetLevel());
 
 	return false;
 }
@@ -2422,7 +2439,7 @@ std::string QuestManager::gettaskname(uint32 task_id) {
 	QuestManagerCurrentQuestVars();
 
 	if (RuleB(TaskSystem, EnableTaskSystem)) {
-		return taskmanager->GetTaskName(task_id);
+		return task_manager->GetTaskName(task_id);
 	}
 
 	return std::string();

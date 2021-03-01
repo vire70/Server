@@ -133,6 +133,10 @@ SET(zone_sources
 	special_attacks.cpp
 	spell_effects.cpp
 	spells.cpp
+	task_client_state.cpp
+	task_goal_list_manager.cpp
+	task_manager.cpp
+	task_proximity_manager.cpp
 	tasks.cpp
 	titles.cpp
 	tradeskills.cpp
@@ -151,8 +155,7 @@ SET(zone_sources
 	zonedb.cpp
 	zone_reload.cpp
 	zone_store.cpp
-	zoning.cpp
-)
+	zoning.cpp)
 
 SET(zone_headers
 	aa.h
@@ -244,7 +247,6 @@ SET(zone_headers
 	quest_interface.h
 	questmgr.h
 	quest_parser_collection.h
-	raid.h
 	raids.h
 	raycast_mesh.h
 	skills.h
@@ -252,6 +254,10 @@ SET(zone_headers
 	spawn2.h
 	spawngroup.h
 	string_ids.h
+	task_client_state.h
+	task_goal_list_manager.h
+	task_manager.h
+	task_proximity_manager.h
 	tasks.h
 	titles.h
 	trap.h
@@ -265,8 +271,7 @@ SET(zone_headers
 	zonedb.h
 	zonedump.h
 	zone_reload.h
-	zone_store.h
-)
+	zone_store.h)
 
 ADD_EXECUTABLE(zone ${zone_sources} ${zone_headers})
 

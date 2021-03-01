@@ -501,6 +501,8 @@ RULE_INT(Combat, LevelToStopACTwinkControl, 50, "Level to stop armorclass twink 
 RULE_BOOL(Combat, ClassicNPCBackstab, false, "True disables NPC facestab - NPC get normal attack if not behind")
 RULE_BOOL(Combat, UseNPCDamageClassLevelMods, true, "Uses GetClassLevelDamageMod calc in npc_scale_manager")
 RULE_BOOL(Combat, UseExtendedPoisonProcs, false, "Allow old school poisons to last until characrer zones, at a lower proc rate")
+RULE_BOOL(Combat, EnableSneakPull, false, "Enable implementation of Sneak Pull")
+RULE_INT(Combat, SneakPullAssistRange, 400, "Modified range of assist for sneak pull")
 RULE_CATEGORY_END()
 
 RULE_CATEGORY(NPC)
@@ -531,6 +533,7 @@ RULE_INT(NPC, NPCGateDistanceBind, 75, "Distance from bind before NPC will attem
 RULE_BOOL(NPC, NPCHealOnGate, true, "Will the NPC Heal on Gate")
 RULE_BOOL(NPC, UseMeditateBasedManaRegen, false, "Based NPC ooc regen on Meditate skill")
 RULE_REAL(NPC, NPCHealOnGateAmount, 25, "How much the NPC will heal on gate if enabled")
+RULE_BOOL(NPC, AnimalsOpenDoors, true, "Determines or not whether animals open doors or not when they approach them")
 RULE_CATEGORY_END()
 
 RULE_CATEGORY(Aggro)
