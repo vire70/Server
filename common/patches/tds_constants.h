@@ -132,7 +132,7 @@ namespace TDS {
 		static const uint16 MAP_ARCHIVED_SIZE = 0;
 		static const uint16 MAP_MAIL_SIZE = 0;
 		static const uint16 MAP_GUILD_TROPHY_TRIBUTE_SIZE = 0;
-		static const uint16 MAP_KRONO_SIZE = NOT_USED;
+		static const uint16 MAP_KRONO_SIZE = 0;
 		static const uint16 MAP_OTHER_SIZE = 0;
 		static const uint16 MAP_MERCENARY_ITEMS_SIZE = 0;
 		static const uint16 MAP_VIEW_MOD_MERCENARY_ITEMS_SIZE = 0;

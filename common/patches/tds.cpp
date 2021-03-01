@@ -669,7 +669,7 @@ namespace TDS
 
 			SerializeItem(ob, (const EQ::ItemInstance*)eq->inst, eq->slot_id, 0, ItemPacketCharInventory);
 
-			if (Serialized) {
+			if (ob.tellp() != last_pos) {
 
 				uchar *OldBuffer = in->pBuffer;
 				in->pBuffer = new uchar[in->size + Length];
@@ -677,10 +677,10 @@ namespace TDS
 
 				safe_delete_array(OldBuffer);
 
-				memcpy(in->pBuffer + in->size, Serialized, Length);
+				memcpy(in->pBuffer + in->size, &ob, Length);
 				in->size += Length;
 
-				safe_delete_array(Serialized);
+				delete[] &ob;
 			}
 			else {
 				LogNetcode("TDS::ENCODE(OP_CharInventory) Serialization failed on item slot [{}] during OP_CharInventory.  Item skipped", eq->slot_id);
@@ -5916,13 +5916,17 @@ namespace TDS
 
 		iqbs.subitem_count = 0;
 
-		char *SubSerializations[10]; // <watch>
+		ss.write((const char*)&iqbs, sizeof(TDS::structs::ItemQuaternaryBodyStruct));
+		EQ::OutBuffer::pos_type count_pos = ss.tellp();
+
+		EQ::OutBuffer SubSerializations;
+		//char *SubSerializations[10]; // <watch>
 
 		uint32 SubLengths[10];
 
-		for (int x = SUB_BEGIN; x < EQ::invbag::SLOT_COUNT; ++x) {
+		for (int x = EQ::invslot::SLOT_BEGIN; x < EQ::invbag::SLOT_COUNT; ++x) {
 
-			SubSerializations[x] = nullptr;
+			//SubSerializations[x] = nullptr;
 
 			const EQ::ItemInstance* subitem = ((const EQ::ItemInstance*)inst)->GetItem(x);
 
@@ -5949,29 +5953,32 @@ namespace TDS
 				SubSlotNumber = Inventory::CalcSlotID(slot_id_in, x);
 				*/
 
-				SubSerializations[x] = SerializeItem(subitem, SubSlotNumber, &SubLengths[x], depth + 1, packet_type);
+				SerializeItem(SubSerializations, subitem, SubSlotNumber, depth + 1, packet_type);
+				//SubSerializations[x] = SerializeItem(subitem, SubSlotNumber, &SubLengths[x], depth + 1, packet_type);
 			}
 		}
 
 		ss.write((const char*)&iqbs, sizeof(TDS::structs::ItemQuaternaryBodyStruct));
 
-		for (int x = SUB_BEGIN; x < EQ::invbag::SLOT_COUNT; ++x) {
+		for (int x = EQ::invslot::SLOT_BEGIN; x < EQ::invbag::SLOT_COUNT; ++x) {
 
-			if (SubSerializations[x]) {
+			if (SubSerializations) {
 
 				ss.write((const char*)&x, sizeof(uint32));
 
-				ss.write(SubSerializations[x], SubLengths[x]);
+				//ss.write(SubSerializations, SubLengths[x]);
 
-				safe_delete_array(SubSerializations[x]);
+				delete[] &SubSerializations;
 			}
 		}
 
+		/*
 		char* item_serial = new char[ss.tellp()];
 		memset(item_serial, 0, ss.tellp());
 		memcpy(item_serial, ss.str().c_str(), ss.tellp());
 
 		*length = ss.tellp();
+		*/
 	}
 
 	static inline structs::ItemSlotStruct ServerToTDSSlot(uint32 serverSlot, ItemPacketType PacketType)
@@ -6161,7 +6168,7 @@ namespace TDS
 			else // Worn Slots
 				TempSlot = tdsSlot.MainSlot;
 
-			if (tdsSlot.SubSlot >= SUB_BEGIN) // Bag Slots
+			if (tdsSlot.SubSlot >= EQ::invbag::GENERAL_BAGS_BEGIN) // Bag Slots
 				TempSlot = ((TempSlot + 3) * EQ::invbag::SLOT_COUNT) + tdsSlot.SubSlot + 1;
 
 			ServerSlot = TempSlot;
@@ -6170,7 +6177,7 @@ namespace TDS
 		else if (tdsSlot.SlotType == maps::MapBank) {
 			TempSlot = EQ::invslot::BANK_BEGIN;
 
-			if (tdsSlot.SubSlot >= SUB_BEGIN)
+			if (tdsSlot.SubSlot >= EQ::invbag::BANK_BAGS_BEGIN)
 				TempSlot += ((tdsSlot.MainSlot + 3) * EQ::invbag::SLOT_COUNT) + tdsSlot.SubSlot + 1;
 
 			else
@@ -6182,7 +6189,7 @@ namespace TDS
 		else if (tdsSlot.SlotType == maps::MapSharedBank) {
 			TempSlot = EQ::invslot::SHARED_BANK_BEGIN;
 
-			if (tdsSlot.SubSlot >= SUB_BEGIN)
+			if (tdsSlot.SubSlot >= EQ::invbag::SHARED_BANK_BAGS_BEGIN)
 				TempSlot += ((tdsSlot.MainSlot + 3) * EQ::invbag::SLOT_COUNT) + tdsSlot.SubSlot + 1;
 
 			else
@@ -6194,7 +6201,7 @@ namespace TDS
 		else if (tdsSlot.SlotType == maps::MapTrade) {
 			TempSlot = EQ::invslot::TRADE_BEGIN;
 
-			if (tdsSlot.SubSlot >= SUB_BEGIN)
+			if (tdsSlot.SubSlot >= EQ::invbag::TRADE_BAGS_BEGIN)
 				TempSlot += ((tdsSlot.MainSlot + 3) * EQ::invbag::SLOT_COUNT) + tdsSlot.SubSlot + 1;
 			// OLD CODE:
 			//TempSlot += 100 + (tdsSlot.MainSlot * EmuConstants::ITEM_CONTAINER_SIZE) + tdsSlot.SubSlot;
@@ -6208,7 +6215,7 @@ namespace TDS
 		else if (tdsSlot.SlotType == maps::MapWorld) {
 			TempSlot = EQ::invslot::WORLD_BEGIN;
 
-			if (tdsSlot.MainSlot >= SUB_BEGIN)
+			if (tdsSlot.MainSlot >= EQ::invslot::WORLD_BEGIN)
 				TempSlot += tdsSlot.MainSlot;
 
 			ServerSlot = TempSlot;
@@ -6261,7 +6268,7 @@ namespace TDS
 			else
 				TempSlot = tdsSlot.MainSlot;
 
-			if (tdsSlot.SubSlot >= SUB_BEGIN) // Bag Slots
+			if (tdsSlot.SubSlot >= EQ::invbag::GENERAL_BAGS_BEGIN) // Bag Slots
 				TempSlot = ((TempSlot + 3) * EQ::invbag::SLOT_COUNT) + tdsSlot.SubSlot + 1;
 
 			ServerSlot = TempSlot;
