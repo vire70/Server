@@ -1,4 +1,4 @@
-CMAKE_MINIMUM_REQUIRED(VERSION 3.2)
+CMAKE_MINIMUM_REQUIRED(VERSION 3.9)
 
 SET(export_sources
 	main.cpp
@@ -8,6 +8,10 @@ SET(export_headers
 )
 
 ADD_EXECUTABLE(export_client_files ${export_sources} ${export_headers})
+
+IF(EQEMU_ENABLE_LTO AND LTO_SUPPORTED)
+	SET_PROPERTY(TARGET export_client_files PROPERTY INTERPROCEDURAL_OPTIMIZATION TRUE)
+ENDIF()
 
 INSTALL(TARGETS export_client_files RUNTIME DESTINATION ${CMAKE_INSTALL_PREFIX}/bin)
 

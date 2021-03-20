@@ -1,4 +1,4 @@
-CMAKE_MINIMUM_REQUIRED(VERSION 3.2)
+CMAKE_MINIMUM_REQUIRED(VERSION 3.9)
 
 SET(shared_memory_sources
 	base_data.cpp
@@ -20,6 +20,10 @@ SET(shared_memory_headers
 )
 
 ADD_EXECUTABLE(shared_memory ${shared_memory_sources} ${shared_memory_headers})
+
+IF(EQEMU_ENABLE_LTO AND LTO_SUPPORTED)
+	SET_PROPERTY(TARGET shared_memory PROPERTY INTERPROCEDURAL_OPTIMIZATION TRUE)
+ENDIF()
 
 INSTALL(TARGETS shared_memory RUNTIME DESTINATION ${CMAKE_INSTALL_PREFIX}/bin)
 

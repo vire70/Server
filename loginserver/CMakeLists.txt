@@ -1,4 +1,4 @@
-CMAKE_MINIMUM_REQUIRED(VERSION 3.2)
+CMAKE_MINIMUM_REQUIRED(VERSION 3.9)
 
 SET(eqlogin_sources
 	account_management.cpp
@@ -29,6 +29,10 @@ SET(eqlogin_headers
 )
 
 ADD_EXECUTABLE(loginserver ${eqlogin_sources} ${eqlogin_headers})
+
+IF(EQEMU_ENABLE_LTO AND LTO_SUPPORTED)
+	SET_PROPERTY(TARGET loginserver PROPERTY INTERPROCEDURAL_OPTIMIZATION TRUE)
+ENDIF()
 
 INSTALL(TARGETS loginserver RUNTIME DESTINATION ${CMAKE_INSTALL_PREFIX}/bin)
 
