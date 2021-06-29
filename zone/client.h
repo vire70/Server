@@ -1104,7 +1104,7 @@ public:
 		}
 	}
 	inline void UpdateTasksForItem(
-		ActivityType activity_type,
+		TaskActivityType activity_type,
 		int item_id,
 		int count = 1
 	)
