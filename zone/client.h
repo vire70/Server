@@ -79,6 +79,7 @@ namespace EQ
 #include <algorithm>
 #include <memory>
 #include <deque>
+#include <ctime>
 
 
 #define CLIENT_TIMEOUT 90000
@@ -1212,7 +1213,7 @@ public:
 		bool enforce_level_requirement = false
 	) {
 		if (task_state) {
-			task_state->AcceptNewTask(this, task_id, npc_id, enforce_level_requirement);
+			task_state->AcceptNewTask(this, task_id, npc_id, std::time(nullptr), enforce_level_requirement);
 		}
 	}
 	inline int ActiveSpeakTask(int npc_type_id)
