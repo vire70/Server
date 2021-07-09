@@ -1605,6 +1605,9 @@ public:
 
 	void ShowDevToolsMenu();
 
+	// rate limit
+	Timer m_list_task_timers_rate_limit = {};
+
 protected:
 	friend class Mob;
 	void CalcItemBonuses(StatBonuses* newbon);
