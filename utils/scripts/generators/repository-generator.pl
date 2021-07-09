@@ -273,7 +273,7 @@ foreach my $table_to_generate (@tables) {
                 $query_value = sprintf('" + std::to_string(%s_entry.%s));', $table_name, $column_name_formatted);
             }
             elsif ($data_type =~ /datetime/) {
-                $query_value = sprintf('FROM_UNIXTIME(" + std::to_string(%s_entry.%s) + ")");', $table_name, $column_name_formatted);
+                $query_value = sprintf('FROM_UNIXTIME(" + (%s_entry.%s > 0 ? std::to_string(%s_entry.%s) : "null") + ")");', $table_name, $column_name_formatted, $table_name, $column_name_formatted);
             }
 
             $update_one_entries .= sprintf(
@@ -289,16 +289,20 @@ foreach my $table_to_generate (@tables) {
             $value = sprintf('std::to_string(%s_entry.%s)', $table_name, $column_name_formatted);
         }
         elsif ($data_type =~ /datetime/) {
-            $value = sprintf('"FROM_UNIXTIME(" + std::to_string(%s_entry.%s) + ")"', $table_name, $column_name_formatted);
+            $value = sprintf('"FROM_UNIXTIME(" + (%s_entry.%s > 0 ? std::to_string(%s_entry.%s) : "null") + ")"', $table_name, $column_name_formatted, $table_name, $column_name_formatted);
         }
 
         $insert_one_entries  .= sprintf("\t\tinsert_values.push_back(%s);\n", $value);
         $insert_many_entries .= sprintf("\t\t\tinsert_values.push_back(%s);\n", $value);
 
         # find one / all (select)
-        if ($data_type =~ /bigint|datetime/) {
+        if ($data_type =~ /bigint/) {
             $all_entries      .= sprintf("\t\t\tentry.%-${longest_column_length}s = strtoll(row[%s], nullptr, 10);\n", $column_name_formatted, $index);
             $find_one_entries .= sprintf("\t\t\tentry.%-${longest_column_length}s = strtoll(row[%s], nullptr, 10);\n", $column_name_formatted, $index);
+        }
+        elsif ($data_type =~ /datetime/) {
+            $all_entries      .= sprintf("\t\t\tentry.%-${longest_column_length}s = strtoll(row[%s] ? row[%s] : \"-1\", nullptr, 10);\n", $column_name_formatted, $index, $index);
+            $find_one_entries .= sprintf("\t\t\tentry.%-${longest_column_length}s = strtoll(row[%s] ? row[%s] : \"-1\", nullptr, 10);\n", $column_name_formatted, $index, $index);
         }
         elsif ($data_type =~ /int/) {
             $all_entries      .= sprintf("\t\t\tentry.%-${longest_column_length}s = atoi(row[%s]);\n", $column_name_formatted, $index);
