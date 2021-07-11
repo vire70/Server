@@ -79,6 +79,7 @@
 
 #define CPPHTTPLIB_OPENSSL_SUPPORT
 #include "../common/http/httplib.h"
+#include "../common/shared_tasks.h"
 
 extern QueryServ* QServ;
 extern WorldServer worldserver;
@@ -8182,31 +8183,31 @@ void command_summonitem(Client *c, const Seperator *sep)
 			).c_str()
 		);
 	}
-	
+
 	if (arguments >= 2 && sep->IsNumber(2)) {
 		charges = atoi(sep->arg[2]);
 	}
-	
+
 	if (arguments >= 3 && sep->IsNumber(3)) {
 		augment_one = atoi(sep->arg[3]);
 	}
-	
+
 	if (arguments >= 4 && sep->IsNumber(4)) {
 		augment_two = atoi(sep->arg[4]);
 	}
-	
+
 	if (arguments >= 5 && sep->IsNumber(5)) {
 		augment_three = atoi(sep->arg[5]);
 	}
-	
+
 	if (arguments >= 6 && sep->IsNumber(6)) {
 		augment_four = atoi(sep->arg[6]);
 	}
-	
+
 	if (arguments >= 7 && sep->IsNumber(7)) {
 		augment_five = atoi(sep->arg[7]);
 	}
-	
+
 	if (arguments == 8 && sep->IsNumber(8)) {
 		augment_six = atoi(sep->arg[8]);
 	}
@@ -8250,7 +8251,7 @@ void command_giveitem(Client *c, const Seperator *sep)
 			c->Message(Chat::Red, "Usage: #giveitem [item id | link] [charges] [augment_one_id] [augment_two_id] [augment_three_id] [augment_four_id] [augment_five_id] [augment_six_id] (Charges are optional.)");
 			return;
 		}
-		
+
 		Client *client_target = c->GetTarget()->CastToClient();
 		uint8 item_status = 0;
 		uint8 current_status = c->Admin();
@@ -8258,7 +8259,7 @@ void command_giveitem(Client *c, const Seperator *sep)
 		if (item) {
 			item_status = item->MinStatus;
 		}
-		
+
 		if (item_status > current_status) {
 			c->Message(
 				Chat::White,
@@ -8270,23 +8271,23 @@ void command_giveitem(Client *c, const Seperator *sep)
 			);
 			return;
 		}
-			
+
 		if (arguments >= 2 && sep->IsNumber(2)) {
 			charges = atoi(sep->arg[2]);
 		}
-		
+
 		if (arguments >= 3 && sep->IsNumber(3)) {
 			augment_one = atoi(sep->arg[3]);
 		}
-		
+
 		if (arguments >= 4 && sep->IsNumber(4)) {
 			augment_two = atoi(sep->arg[4]);
 		}
-		
+
 		if (arguments >= 5 && sep->IsNumber(5)) {
 			augment_three = atoi(sep->arg[5]);
 		}
-		
+
 		if (arguments >= 6 && sep->IsNumber(6)) {
 			augment_four = atoi(sep->arg[6]);
 		}
@@ -10586,6 +10587,18 @@ void command_task(Client *c, const Seperator *sep) {
 				EQ::SayLinkEngine::GenerateQuestSaylink("#task reload sets", false, "reload sets")
 			).c_str()
 		);
+
+		c->Message(Chat::White, "------------------------------------------------");
+		c->Message(Chat::White, "# Shared Task System Commands");
+		c->Message(Chat::White, "------------------------------------------------");
+		c->Message(
+			Chat::White,
+			fmt::format(
+				"--- [{}] Purges all active Shared Tasks in memory and database ",
+				EQ::SayLinkEngine::GenerateQuestSaylink("#task sharedpurge", false, "purge shared tasks")
+			).c_str()
+		);
+
 		return;
 	}
 
@@ -10622,6 +10635,26 @@ void command_task(Client *c, const Seperator *sep) {
 			client_target->UpdateTaskActivity(task_id, activity_id, count);
 			c->ShowClientTasks(client_target);
 		}
+		return;
+	}
+
+	if (!strcasecmp(sep->arg[1], "sharedpurge")) {
+		if (!strcasecmp(sep->arg[2], "confirm")) {
+			auto pack = new ServerPacket(ServerOP_SharedTaskPurgeAllCommand, 0);
+			worldserver.SendPacket(pack);
+			safe_delete(pack);
+
+			return;
+		}
+
+		c->Message(
+			Chat::White,
+			fmt::format(
+				"[WARNING] This will purge all active Shared Tasks [{}]?",
+				EQ::SayLinkEngine::GenerateQuestSaylink("#task sharedpurge confirm", false, "confirm")
+			).c_str()
+		);
+
 		return;
 	}
 
