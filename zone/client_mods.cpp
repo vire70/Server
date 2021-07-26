@@ -233,72 +233,11 @@ int32 Client::LevelRegen()
 	return hp;
 }
 
-int32 Client::CalcHPRegen(bool bCombat)
+int32 Client::CalcHPRegen()
 {
-	int item_regen = itembonuses.HPRegen; // worn spells and +regen, already capped
-	item_regen += GetHeroicSTA() / 20;
-
-	item_regen += aabonuses.HPRegen;
-
-	int base = 0;
-	auto base_data = database.GetBaseData(GetLevel(), GetClass());
-	if (base_data)
-		base = static_cast<int>(base_data->hp_regen);
-
-	auto level = GetLevel();
-	bool skip_innate = false;
-
-	if (IsSitting()) {
-		if (level >= 50) {
-			base++;
-			if (level >= 65)
-				base++;
-		}
-
-		if ((Timer::GetCurrentTime() - tmSitting) > 60000) {
-			if (!IsAffectedByBuffByGlobalGroup(GlobalGroup::Lich)) {
-				auto tic_diff = std::min((Timer::GetCurrentTime() - tmSitting) / 60000, static_cast<uint32>(9));
-				if (tic_diff != 1) { // starts at 2 mins
-					int tic_bonus = tic_diff * 1.5 * base;
-					if (m_pp.InnateSkills[InnateRegen] != InnateDisabled)
-						tic_bonus = tic_bonus * 1.2;
-					base = tic_bonus;
-					skip_innate = true;
-				} else if (m_pp.InnateSkills[InnateRegen] == InnateDisabled) { // no innate regen gets first tick
-					int tic_bonus = base * 1.5;
-					base = tic_bonus;
-				}
-			}
-		}
-	}
-
-	if (!skip_innate && m_pp.InnateSkills[InnateRegen] != InnateDisabled) {
-		if (level >= 50) {
-			++base;
-			if (level >= 55) {
-				++base;
-			}
-		}
-		base *= 2;
-	}
-
-	if (IsStarved())
-		base = 0;
-
-	base += GroupLeadershipAAHealthRegeneration();
-	// some IsKnockedOut that sets to -1
-	base = base * 100.0f * AreaHPRegen * 0.01f + 0.5f;
-	// another check for IsClient && !(base + item_regen) && Cur_HP <= 0 do --base; do later
-
-	if (!bCombat && CanFastRegen() && (IsSitting() || CanMedOnHorse())) {
-		auto max_hp = GetMaxHP();
-		int fast_regen = 6 * (max_hp / zone->newzone_data.FastRegenHP);
-		if (base < fast_regen) // weird, but what the client is doing
-			base = fast_regen;
-	}
-
-	int regen = base + item_regen + spellbonuses.HPRegen; // TODO: client does this in buff tick
-	return (regen * RuleI(Character, HPRegenMultiplier) / 100);
+  int32 regen = LevelRegen() + itembonuses.HPRegen + spellbonuses.HPRegen;
+  regen += aabonuses.HPRegen + GroupLeadershipAAHealthRegeneration();
+  return (regen * RuleI(Character, HPRegenMultiplier) / 100);
 }
 
 int32 Client::CalcHPRegenCap()
