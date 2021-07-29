@@ -6580,7 +6580,7 @@ void Client::SendStatsWindow(Client* client, bool use_window)
 				cap_regen_field = itoa(CalcHPRegenCap());
 				spell_regen_field = itoa(spellbonuses.HPRegen);
 				aa_regen_field = itoa(aabonuses.HPRegen);
-				total_regen_field = itoa(CalcHPRegen(true));
+				total_regen_field = itoa(CalcHPRegen());
 				break;
 			}
 			case 1: {

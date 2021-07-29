@@ -242,11 +242,7 @@ int32 Client::CalcHPRegen()
 
 int32 Client::CalcHPRegenCap()
 {
-	int cap = RuleI(Character, ItemHealthRegenCap);
-	if (GetLevel() > 60)
-		cap = std::max(cap, GetLevel() - 30); // if the rule is set greater than normal I guess
-	if (GetLevel() > 65)
-		cap += GetLevel() - 65;
+	int cap = RuleI(Character, ItemHealthRegenCap) + itembonuses.HeroicSTA / 25;
 	cap += aabonuses.ItemHPRegenCap + spellbonuses.ItemHPRegenCap + itembonuses.ItemHPRegenCap;
 	return (cap * RuleI(Character, HPRegenMultiplier) / 100);
 }
