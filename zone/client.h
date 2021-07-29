@@ -397,6 +397,7 @@ public:
 
 	virtual void SetMaxHP();
 	int32 LevelRegen();
+	
 	void HPTick();
 	void SetGM(bool toggle);
 	void SetPVP(bool toggle, bool message = true);
@@ -1671,7 +1672,7 @@ private:
 	int32 CalcCorrup();
 	int32 CalcMaxHP();
 	int32 CalcBaseHP();
-	int32 CalcHPRegen(bool bCombat = false);
+	int32 CalcHPRegen();
 	int32 CalcManaRegen(bool bCombat = false);
 	int32 CalcBaseManaRegen();
 	uint32 GetClassHPFactor();
