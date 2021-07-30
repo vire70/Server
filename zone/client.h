@@ -579,7 +579,7 @@ public:
   /*Endurance and such*/
   void CalcMaxEndurance(); //This calculates the maximum endurance we can have
   int32 CalcBaseEndurance(); //Calculates Base End
-  int32 CalcEnduranceRegen(bool bCombat = false); //Calculates endurance regen used in DoEnduranceRegen()
+  int32 CalcEnduranceRegen(); //Calculates endurance regen used in DoEnduranceRegen()
   int32 GetEndurance() const {return current_endurance;} //This gets our current endurance
   int32 GetMaxEndurance() const {return max_end;} //This gets our endurance from the last CalcMaxEndurance() call
   int32 CalcEnduranceRegenCap();
@@ -1673,7 +1673,7 @@ private:
   int32 CalcMaxHP();
   int32 CalcBaseHP();
   int32 CalcHPRegen();
-  int32 CalcManaRegen(bool bCombat = false);
+  int32 CalcManaRegen();
   int32 CalcBaseManaRegen();
   uint32 GetClassHPFactor();
   void DoHPRegen();

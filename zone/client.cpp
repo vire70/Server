@@ -6593,7 +6593,7 @@ void Client::SendStatsWindow(Client* client, bool use_window)
           cap_regen_field = itoa(CalcManaRegenCap());
           spell_regen_field = itoa(spellbonuses.ManaRegen);
           aa_regen_field = itoa(aabonuses.ManaRegen);
-          total_regen_field = itoa(CalcManaRegen(true));
+          total_regen_field = itoa(CalcManaRegen());
         }
         else { continue; }
         break;
@@ -6607,7 +6607,7 @@ void Client::SendStatsWindow(Client* client, bool use_window)
         cap_regen_field = itoa(CalcEnduranceRegenCap());
         spell_regen_field = itoa(spellbonuses.EnduranceRegen);
         aa_regen_field = itoa(aabonuses.EnduranceRegen);
-        total_regen_field = itoa(CalcEnduranceRegen(true));
+        total_regen_field = itoa(CalcEnduranceRegen());
         break;
       }
       default: { break; }
