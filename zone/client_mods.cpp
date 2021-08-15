@@ -253,33 +253,33 @@ int32 Client::CalcHPRegenCap()
 
 int32 Client::CalcMaxHP()
 {
-  float nd = 10000;
-  max_hp = (CalcBaseHP() + itembonuses.HP);
-  //The AA desc clearly says it only applies to base hp..
-  //but the actual effect sent on live causes the client
-  //to apply it to (basehp + itemhp).. I will oblige to the client's whims over
-  //the aa description
-  nd += aabonuses.MaxHP;  //Natural Durability, Physical Enhancement, Planar Durability
-  max_hp = (float)max_hp * (float)nd / (float)10000; //this is to fix the HP-above-495k issue
-  max_hp += spellbonuses.HP + aabonuses.HP;
-  max_hp += GroupLeadershipAAHealthEnhancement();
-  max_hp += max_hp * ((spellbonuses.MaxHPChange + itembonuses.MaxHPChange) / 10000.0f);
-  if (current_hp > max_hp) {
-    current_hp = max_hp;
-  }
-  int hp_perc_cap = spellbonuses.HPPercCap[0];
-  if (hp_perc_cap) {
-    int curHP_cap = (max_hp * hp_perc_cap) / 100;
-    if (current_hp > curHP_cap || (spellbonuses.HPPercCap[1] && current_hp > spellbonuses.HPPercCap[1])) {
+	float nd = 10000;
+	max_hp = (CalcBaseHP() + itembonuses.HP);
+	//The AA desc clearly says it only applies to base hp..
+	//but the actual effect sent on live causes the client
+	//to apply it to (basehp + itemhp).. I will oblige to the client's whims over
+	//the aa description
+	nd += aabonuses.MaxHP;	//Natural Durability, Physical Enhancement, Planar Durability
+	max_hp = (float)max_hp * (float)nd / (float)10000; //this is to fix the HP-above-495k issue
+	max_hp += spellbonuses.HP + aabonuses.HP;
+	max_hp += GroupLeadershipAAHealthEnhancement();
+	max_hp += max_hp * ((spellbonuses.MaxHPChange + itembonuses.MaxHPChange) / 10000.0f);
+	if (current_hp > max_hp) {
+		current_hp = max_hp;
+	}
+	int hp_perc_cap = spellbonuses.HPPercCap[SBIndex::RESOURCE_PERCENT_CAP];
+	if (hp_perc_cap) {
+		int curHP_cap = (max_hp * hp_perc_cap) / 100;
+		if (current_hp > curHP_cap || (spellbonuses.HPPercCap[SBIndex::RESOURCE_AMOUNT_CAP] && current_hp > spellbonuses.HPPercCap[SBIndex::RESOURCE_AMOUNT_CAP])) {
 
-      current_hp = curHP_cap;
-    }
-  }
+			current_hp = curHP_cap;
+		}
+	}
 
-  // hack fix for client health not reflecting server value
-  last_max_hp = 0;
+	// hack fix for client health not reflecting server value
+	last_max_hp = 0;
 
-  return max_hp;
+	return max_hp;
 }
 
 uint32 Mob::GetClassLevelFactor()
@@ -508,37 +508,37 @@ int32 Client::GetRawItemAC()
 
 int32 Client::CalcMaxMana()
 {
-  switch (GetCasterClass()) {
-    case 'I':
-    case 'W': {
-        max_mana = (CalcBaseMana() + itembonuses.Mana + spellbonuses.Mana + aabonuses.Mana + GroupLeadershipAAManaEnhancement());
-        break;
-      }
-    case 'N': {
-        max_mana = 0;
-        break;
-      }
-    default: {
-        LogSpells("Invalid Class [{}] in CalcMaxMana", GetCasterClass());
-        max_mana = 0;
-        break;
-      }
-  }
-  if (max_mana < 0) {
-    max_mana = 0;
-  }
-  if (current_mana > max_mana) {
-    current_mana = max_mana;
-  }
-  int mana_perc_cap = spellbonuses.ManaPercCap[0];
-  if (mana_perc_cap) {
-    int curMana_cap = (max_mana * mana_perc_cap) / 100;
-    if (current_mana > curMana_cap || (spellbonuses.ManaPercCap[1] && current_mana > spellbonuses.ManaPercCap[1])) {
-      current_mana = curMana_cap;
-    }
-  }
-  LogSpells("Client::CalcMaxMana() called for [{}] - returning [{}]", GetName(), max_mana);
-  return max_mana;
+	switch (GetCasterClass()) {
+		case 'I':
+		case 'W': {
+				max_mana = (CalcBaseMana() + itembonuses.Mana + spellbonuses.Mana + aabonuses.Mana + GroupLeadershipAAManaEnhancement());
+				break;
+			}
+		case 'N': {
+				max_mana = 0;
+				break;
+			}
+		default: {
+				LogSpells("Invalid Class [{}] in CalcMaxMana", GetCasterClass());
+				max_mana = 0;
+				break;
+			}
+	}
+	if (max_mana < 0) {
+		max_mana = 0;
+	}
+	if (current_mana > max_mana) {
+		current_mana = max_mana;
+	}
+	int mana_perc_cap = spellbonuses.ManaPercCap[SBIndex::RESOURCE_PERCENT_CAP];
+	if (mana_perc_cap) {
+		int curMana_cap = (max_mana * mana_perc_cap) / 100;
+		if (current_mana > curMana_cap || (spellbonuses.ManaPercCap[SBIndex::RESOURCE_AMOUNT_CAP] && current_mana > spellbonuses.ManaPercCap[SBIndex::RESOURCE_AMOUNT_CAP])) {
+			current_mana = curMana_cap;
+		}
+	}
+	LogSpells("Client::CalcMaxMana() called for [{}] - returning [{}]", GetName(), max_mana);
+	return max_mana;
 }
 
 int32 Client::CalcBaseMana()
@@ -676,8 +676,8 @@ int32 Client::CalcManaRegen()
 
 int32 Client::CalcManaRegenCap()
 {
-  int32 cap = RuleI(Character, ItemManaRegenCap) + aabonuses.ItemManaRegenCap;
-  return (cap * RuleI(Character, ManaRegenMultiplier) / 100);
+	int32 cap = RuleI(Character, ItemManaRegenCap) + aabonuses.ItemManaRegenCap + itembonuses.ItemManaRegenCap + spellbonuses.ItemManaRegenCap;
+	return (cap * RuleI(Character, ManaRegenMultiplier) / 100);
 }
 
 uint32 Client::CalcCurrentWeight()
@@ -1502,20 +1502,20 @@ uint32 Mob::GetInstrumentMod(uint16 spell_id) const
 
 void Client::CalcMaxEndurance()
 {
-  max_end = CalcBaseEndurance() + spellbonuses.Endurance + itembonuses.Endurance + aabonuses.Endurance;
-  if (max_end < 0) {
-    max_end = 0;
-  }
-  if (current_endurance > max_end) {
-    current_endurance = max_end;
-  }
-  int end_perc_cap = spellbonuses.EndPercCap[0];
-  if (end_perc_cap) {
-    int curEnd_cap = (max_end * end_perc_cap) / 100;
-    if (current_endurance > curEnd_cap || (spellbonuses.EndPercCap[1] && current_endurance > spellbonuses.EndPercCap[1])) {
-      current_endurance = curEnd_cap;
-    }
-  }
+	max_end = CalcBaseEndurance() + spellbonuses.Endurance + itembonuses.Endurance + aabonuses.Endurance;
+	if (max_end < 0) {
+		max_end = 0;
+	}
+	if (current_endurance > max_end) {
+		current_endurance = max_end;
+	}
+	int end_perc_cap = spellbonuses.EndPercCap[SBIndex::RESOURCE_PERCENT_CAP];
+	if (end_perc_cap) {
+		int curEnd_cap = (max_end * end_perc_cap) / 100;
+		if (current_endurance > curEnd_cap || (spellbonuses.EndPercCap[SBIndex::RESOURCE_AMOUNT_CAP] && current_endurance > spellbonuses.EndPercCap[SBIndex::RESOURCE_AMOUNT_CAP])) {
+			current_endurance = curEnd_cap;
+		}
+	}
 }
 
 int32 Client::CalcBaseEndurance()
@@ -1646,8 +1646,8 @@ int32 Client::CalcEnduranceRegen()
 
 int32 Client::CalcEnduranceRegenCap()
 {
-  int cap = RuleI(Character, ItemEnduranceRegenCap);
-  return (cap * RuleI(Character, EnduranceRegenMultiplier) / 100);
+	int cap = RuleI(Character, ItemEnduranceRegenCap) + aabonuses.ItemEnduranceRegenCap + itembonuses.ItemEnduranceRegenCap + spellbonuses.ItemEnduranceRegenCap;
+	return (cap * RuleI(Character, EnduranceRegenMultiplier) / 100);
 }
 
 int32 Client::CalcItemATKCap()
