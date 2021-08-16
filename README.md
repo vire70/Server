@@ -5,9 +5,9 @@
 
 ***
 
-** See Related Repositories at the bottom to find precompiled server as well as database and client.
+### See Related Repositories at the bottom to find precompiled server as well as database and client.
 
-** NostalgiaEQ Server is a fork of EQEmulator which is a custom completely from-scratch open source server implementation for EverQuest built mostly on C++**
+#### NostalgiaEQ Server is a fork of EQEmulator which is a custom completely from-scratch open source server implementation for EverQuest built mostly on C++**
  * MySQL/MariaDB is used as the database engine (over 200+ tables)
  * Perl and LUA are both supported scripting languages for NPC/Player/Quest oriented events
  * Open source database (Nostalgia EQ) has classic content.
