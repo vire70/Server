@@ -49,10 +49,11 @@ GitHub. If you need help with your changes, you can always post to Discord.
 
 ## Contact <img src="http://gamerescape.com/wp-content/uploads/2015/06/discord.png" height="20">
 
- - Discord Channel: https://discord.gg/e5hAyWfbsW
+ - **Discord Channel**: https://discord.gg/e5hAyWfbsW
  - **User Discord Channel**: `#classic-eq-talk`
  - **Getting Started**: `#get-started`
  - **Development Log**: `#development-log`
+ - **Development Resources**: `#resources`
 
 ## Resources
 - [NostalgiaEQ Discord](https://discord.gg/e5hAyWfbsW)
