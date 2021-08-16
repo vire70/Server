@@ -15,8 +15,8 @@
  * Hundreds of Quests/events created and maintained by FVProject and NostalgiaEQ
 
 ## Server Installs
-| |Windows|Linux|
-|:---:|:---:|:---:|
+|Windows|Linux|
+|:---:|:---:|
 
 ### > Windows 
 
