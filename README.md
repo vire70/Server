@@ -59,10 +59,10 @@ GitHub. If you need help with your changes, you can always post to Discord.
 - [NostalgiaEQ Discord](https://discord.gg/e5hAyWfbsW)
 
 ## Related Repositories
-* [FVProject-quests](https://github.com/GiverofMemory/FVProject-quests)
-* [NostalgiaEQ-server](https://github.com/GiverofMemory/NostalgiaEQ-server)
-* [NostalgiaEQ-database](https://github.com/GiverofMemory/NostalgiaEQ-database)
-* [NostalgiaEQ-client](https://github.com/GiverofMemory/NostalgiaEQ-client)
+* [FVProject-quests](https://github.com/GiverofMemory/FVProject-quests) - NostalgiaEQ's fork of FVProject's quests.
+* [NostalgiaEQ-server](https://github.com/GiverofMemory/NostalgiaEQ-server) - Precompiled Windows version of this server.
+* [NostalgiaEQ-database](https://github.com/GiverofMemory/NostalgiaEQ-database) - NEQ is an open source classic database.
+* [NostalgiaEQ-client](https://github.com/GiverofMemory/NostalgiaEQ-client) - Titanium based client with modifications to get the ultimate classic experience.
 * [EQEmulator](https://github.com/EQEmu/Server)
 * [Installer Resources](https://github.com/Akkadius/EQEmuInstall)
 * [Zone Utilities](https://github.com/EQEmu/zone-utilities) - Various utilities and libraries for parsing, rendering and manipulating EQ Zone files.
