@@ -237,6 +237,8 @@ int32 Client::CalcHPRegen()
 {
 	int32 regen = LevelRegen() + itembonuses.HPRegen + spellbonuses.HPRegen;
 	regen += aabonuses.HPRegen + GroupLeadershipAAHealthRegeneration();
+  if (IsStarved())
+    return (regen = 0);
   return (regen * RuleI(Character, HPRegenMultiplier) / 100);
 }
 
@@ -650,34 +652,78 @@ int32 Client::CalcBaseManaRegen()
 
 int32 Client::CalcManaRegen()
 {
-	uint8 clevel = GetLevel();
-	int32 regen = 0;
-	//this should be changed so we dont med while camping, etc...
-	if (IsSitting() || (GetHorseId() != 0)) {
-		BuffFadeBySitModifier();
-		if (HasSkill(EQ::skills::SkillMeditate)) {
-			this->medding = true;
-			regen = (((GetSkill(EQ::skills::SkillMeditate) / 10) + (clevel - (clevel / 4))) / 4) + 4;
-			regen += spellbonuses.ManaRegen + itembonuses.ManaRegen;
-			CheckIncreaseSkill(EQ::skills::SkillMeditate, nullptr, -5);
-		}
-		else {
-			regen = 2 + spellbonuses.ManaRegen + itembonuses.ManaRegen;
-		}
-	}
-	else {
-		this->medding = false;
-		regen = 2 + spellbonuses.ManaRegen + itembonuses.ManaRegen;
-	}
-	//AAs
-	regen += aabonuses.ManaRegen;
-	return (regen * RuleI(Character, ManaRegenMultiplier) / 100);
+  int regen = 0;
+  auto level = GetLevel();
+  // so the new formulas break down with older skill caps where you don't have the skill until 4 or 8
+  // so for servers that want to use the old skill progression they can set this rule so they
+  // will get at least 1 for standing and 2 for sitting.
+  bool old = RuleB(Character, OldMinMana);
+  if (!IsStarved()) {
+    // client does some base regen for shrouds here
+    if (IsSitting() || CanMedOnHorse()) {
+      // kind of weird to do it here w/e
+      // client does some base medding regen for shrouds here
+      if (GetClass() != BARD) {
+        auto skill = GetSkill(EQ::skills::SkillMeditate);
+        if (skill > 0) {
+          regen++;
+          if (skill > 1)
+            regen++;
+          if (skill >= 12)
+            regen += skill / 12;
+        }
+      }
+      if (old)
+        regen = std::max(regen, 2);
+    } else if (old) {
+      regen = std::max(regen, 1);
+    }
+  }
+
+  if (level > 61) {
+    regen++;
+    if (level > 63)
+      regen++;
+  }
+
+  regen += aabonuses.ManaRegen;
+  // add in + 1 bonus for SE_CompleteHeal, but we don't do anything for it yet?
+
+  int item_bonus = itembonuses.ManaRegen; // this is capped already
+  int heroic_bonus = 0;
+
+  switch (GetCasterClass()) {
+  case 'W':
+    heroic_bonus = GetHeroicWIS();
+    break;
+  default:
+    heroic_bonus = GetHeroicINT();
+    break;
+  }
+
+  item_bonus += heroic_bonus / 25;
+  regen += item_bonus;
+
+  if (level <= 70 && regen > 65)
+    regen = 65;
+
+  regen = regen * 100.0f * AreaManaRegen * 0.01f + 0.5f;
+
+  if (CanFastRegen() && (IsSitting() || CanMedOnHorse())) {
+    auto max_mana = GetMaxMana();
+    int fast_regen = 6 * (max_mana / zone->newzone_data.FastRegenMana);
+    if (regen < fast_regen) // weird, but what the client is doing
+      regen = fast_regen;
+  }
+
+  regen += spellbonuses.ManaRegen; // TODO: live does this in buff tick
+  return (regen * RuleI(Character, ManaRegenMultiplier) / 100);
 }
 
 int32 Client::CalcManaRegenCap()
 {
-	int32 cap = RuleI(Character, ItemManaRegenCap) + aabonuses.ItemManaRegenCap + itembonuses.ItemManaRegenCap + spellbonuses.ItemManaRegenCap;
-	return (cap * RuleI(Character, ManaRegenMultiplier) / 100);
+  int32 cap = RuleI(Character, ItemManaRegenCap) + aabonuses.ItemManaRegenCap + itembonuses.ItemManaRegenCap + spellbonuses.ItemManaRegenCap;
+  return (cap * RuleI(Character, ManaRegenMultiplier) / 100);
 }
 
 uint32 Client::CalcCurrentWeight()
