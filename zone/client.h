@@ -1637,295 +1637,293 @@ protected:
 	int adv_requested_member_count;
 	char *adv_data;
 
-private:
+private:	
+	eqFilterMode ClientFilters[_FilterCount];
+	int32 HandlePacket(const EQApplicationPacket *app);
+	void OPTGB(const EQApplicationPacket *app);
+	void OPRezzAnswer(uint32 Action, uint32 SpellID, uint16 ZoneID, uint16 InstanceID, float x, float y, float z);
+	void OPMemorizeSpell(const EQApplicationPacket *app);
+	void OPMoveCoin(const EQApplicationPacket* app);
+	void MoveItemCharges(EQ::ItemInstance &from, int16 to_slot, uint8 type);
+	void OPGMTraining(const EQApplicationPacket *app);
+	void OPGMEndTraining(const EQApplicationPacket *app);
+	void OPGMTrainSkill(const EQApplicationPacket *app);
+	void OPGMSummon(const EQApplicationPacket *app);
+	void OPCombatAbility(const CombatAbility_Struct *ca_atk);
 
-  eqFilterMode ClientFilters[_FilterCount];
-  int32 HandlePacket(const EQApplicationPacket *app);
-  void OPTGB(const EQApplicationPacket *app);
-  void OPRezzAnswer(uint32 Action, uint32 SpellID, uint16 ZoneID, uint16 InstanceID, float x, float y, float z);
-  void OPMemorizeSpell(const EQApplicationPacket *app);
-  void OPMoveCoin(const EQApplicationPacket* app);
-  void MoveItemCharges(EQ::ItemInstance &from, int16 to_slot, uint8 type);
-  void OPGMTraining(const EQApplicationPacket *app);
-  void OPGMEndTraining(const EQApplicationPacket *app);
-  void OPGMTrainSkill(const EQApplicationPacket *app);
-  void OPGMSummon(const EQApplicationPacket *app);
-  void OPCombatAbility(const CombatAbility_Struct *ca_atk);
+	// Bandolier Methods
+	void CreateBandolier(const EQApplicationPacket *app);
+	void RemoveBandolier(const EQApplicationPacket *app);
+	void SetBandolier(const EQApplicationPacket *app);
 
-  // Bandolier Methods
-  void CreateBandolier(const EQApplicationPacket *app);
-  void RemoveBandolier(const EQApplicationPacket *app);
-  void SetBandolier(const EQApplicationPacket *app);
+	void HandleTraderPriceUpdate(const EQApplicationPacket *app);
 
-  void HandleTraderPriceUpdate(const EQApplicationPacket *app);
+	int32 CalcItemATKCap();
+	int32 CalcHaste();
 
-  int32 CalcItemATKCap();
-  int32 CalcHaste();
+	int32 CalcAlcoholPhysicalEffect();
+	int32 CalcSTR();
+	int32 CalcSTA();
+	int32 CalcDEX();
+	int32 CalcAGI();
+	int32 CalcINT();
+	int32 CalcWIS();
+	int32 CalcCHA();
 
-  int32 CalcAlcoholPhysicalEffect();
-  int32 CalcSTR();
-  int32 CalcSTA();
-  int32 CalcDEX();
-  int32 CalcAGI();
-  int32 CalcINT();
-  int32 CalcWIS();
-  int32 CalcCHA();
+	int32 CalcMR();
+	int32 CalcFR();
+	int32 CalcDR();
+	int32 CalcPR();
+	int32 CalcCR();
+	int32 CalcCorrup();
+	int32 CalcMaxHP();
+	int32 CalcBaseHP();
+	int32 CalcHPRegen(bool bCombat = false);
+	int32 CalcManaRegen(bool bCombat = false);
+	int32 CalcBaseManaRegen();
+	uint32 GetClassHPFactor();
+	void DoHPRegen();
+	void DoManaRegen();
+	void DoStaminaHungerUpdate();
+	void CalcRestState();
+	// if they have aggro (AggroCount != 0) their timer is saved in m_pp.RestTimer, else we need to get current timer
+	inline uint32 GetRestTimer() const { return AggroCount ? m_pp.RestTimer : rest_timer.GetRemainingTime() / 1000; }
+	void UpdateRestTimer(uint32 new_timer);
 
-  int32 CalcMR();
-  int32 CalcFR();
-  int32 CalcDR();
-  int32 CalcPR();
-  int32 CalcCR();
-  int32 CalcCorrup();
-  int32 CalcMaxHP();
-  int32 CalcBaseHP();
-  int32 CalcHPRegen();
-  int32 CalcManaRegen();
-  int32 CalcBaseManaRegen();
-  uint32 GetClassHPFactor();
-  void DoHPRegen();
-  void DoManaRegen();
-  void DoStaminaHungerUpdate();
-  void CalcRestState();
-  // if they have aggro (AggroCount != 0) their timer is saved in m_pp.RestTimer, else we need to get current timer
-  inline uint32 GetRestTimer() const { return AggroCount ? m_pp.RestTimer : rest_timer.GetRemainingTime() / 1000; }
-  void UpdateRestTimer(uint32 new_timer);
+	uint32 pLastUpdate;
+	uint32 pLastUpdateWZ;
+	uint8 playeraction;
 
-  uint32 pLastUpdate;
-  uint32 pLastUpdateWZ;
-  uint8 playeraction;
+	EQStreamInterface* eqs;
 
-  EQStreamInterface* eqs;
+	uint32 ip;
+	uint16 port;
+	CLIENT_CONN_STATUS client_state;
+	uint32 character_id;
+	uint32 WID;
+	uint32 account_id;
+	char account_name[30];
+	char loginserver[64];
+	uint32 lsaccountid;
+	char lskey[30];
+	int16 admin;
+	uint32 guild_id;
+	uint8 guildrank; // player's rank in the guild, 0-GUILD_MAX_RANK
+	bool GuildBanker;
+	uint16 duel_target;
+	bool duelaccepted;
+	std::list<uint32> keyring;
+	bool tellsoff; // GM /toggle
+	bool gm_hide_me;
+	bool LFG;
+	bool LFP;
+	uint8 LFGFromLevel;
+	uint8 LFGToLevel;
+	bool LFGMatchFilter;
+	char LFGComments[64];
+	bool AFK;
+	bool auto_attack;
+	bool auto_fire;
+	bool runmode;
+	uint8 gmspeed;
+	bool medding;
+	uint16 horseId;
+	bool revoked;
+	uint32 pQueuedSaveWorkID;
+	uint16 pClientSideTarget;
+	uint32 weight;
+	bool berserk;
+	bool dead;
+	uint16 controlling_boat_id;
+	uint16 controlled_mob_id;
+	uint16 TrackingID;
+	uint16 CustomerID;
+	uint16 TraderID;
+	uint32 account_creation;
+	uint8 firstlogon;
+	uint32 mercid; // current merc
+	uint8 mercSlot; // selected merc slot
+	bool Trader;
+	bool Buyer;
+	std::string BuyerWelcomeMessage;
+	bool AbilityTimer;
+	int Haste; //precalced value
+	uint32 tmSitting; // time stamp started sitting, used for HP regen bonus added on MAY 5, 2004
 
-  uint32 ip;
-  uint16 port;
-  CLIENT_CONN_STATUS client_state;
-  uint32 character_id;
-  uint32 WID;
-  uint32 account_id;
-  char account_name[30];
-  char loginserver[64];
-  uint32 lsaccountid;
-  char lskey[30];
-  int16 admin;
-  uint32 guild_id;
-  uint8 guildrank; // player's rank in the guild, 0-GUILD_MAX_RANK
-  bool GuildBanker;
-  uint16 duel_target;
-  bool duelaccepted;
-  std::list<uint32> keyring;
-  bool tellsoff; // GM /toggle
-  bool gm_hide_me;
-  bool LFG;
-  bool LFP;
-  uint8 LFGFromLevel;
-  uint8 LFGToLevel;
-  bool LFGMatchFilter;
-  char LFGComments[64];
-  bool AFK;
-  bool auto_attack;
-  bool auto_fire;
-  bool runmode;
-  uint8 gmspeed;
-  bool medding;
-  uint16 horseId;
-  bool revoked;
-  uint32 pQueuedSaveWorkID;
-  uint16 pClientSideTarget;
-  uint32 weight;
-  bool berserk;
-  bool dead;
-  uint16 controlling_boat_id;
-  uint16 controlled_mob_id;
-  uint16 TrackingID;
-  uint16 CustomerID;
-  uint16 TraderID;
-  uint32 account_creation;
-  uint8 firstlogon;
-  uint32 mercid; // current merc
-  uint8 mercSlot; // selected merc slot
-  bool Trader;
-  bool Buyer;
-  std::string BuyerWelcomeMessage;
-  bool AbilityTimer;
-  int Haste; //precalced value
-  uint32 tmSitting; // time stamp started sitting, used for HP regen bonus added on MAY 5, 2004
+	bool display_mob_info_window;
+	bool dev_tools_enabled;
 
-  bool display_mob_info_window;
-  bool dev_tools_enabled;
+	int32 max_end;
+	int32 current_endurance;
 
-  int32 max_end;
-  int32 current_endurance;
+	PlayerProfile_Struct m_pp;
+	ExtendedProfile_Struct m_epp;
+	EQ::InventoryProfile m_inv;
+	Object* m_tradeskill_object;
+	PetInfo m_petinfo; // current pet data, used while loading from and saving to DB
+	PetInfo m_suspendedminion; // pet data for our suspended minion.
+	MercInfo m_mercinfo[MAXMERCS]; // current mercenary
+	InspectMessage_Struct m_inspect_message;
+	bool temp_pvp;
 
-  PlayerProfile_Struct m_pp;
-  ExtendedProfile_Struct m_epp;
-  EQ::InventoryProfile m_inv;
-  Object* m_tradeskill_object;
-  PetInfo m_petinfo; // current pet data, used while loading from and saving to DB
-  PetInfo m_suspendedminion; // pet data for our suspended minion.
-  MercInfo m_mercinfo[MAXMERCS]; // current mercenary
-  InspectMessage_Struct m_inspect_message;
-  bool temp_pvp;
+	void NPCSpawn(const Seperator* sep);
+	uint32 GetEXPForLevel(uint16 level);
 
-  void NPCSpawn(const Seperator* sep);
-  uint32 GetEXPForLevel(uint16 level);
+	bool CanBeInZone();
+	void SendLogoutPackets();
+	void SendZoneInPackets();
+	bool AddPacket(const EQApplicationPacket *, bool);
+	bool AddPacket(EQApplicationPacket**, bool);
+	bool SendAllPackets();
+	std::deque<std::unique_ptr<CLIENTPACKET>> clientpackets;
 
-  bool CanBeInZone();
-  void SendLogoutPackets();
-  void SendZoneInPackets();
-  bool AddPacket(const EQApplicationPacket *, bool);
-  bool AddPacket(EQApplicationPacket**, bool);
-  bool SendAllPackets();
-  std::deque<std::unique_ptr<CLIENTPACKET>> clientpackets;
+	//Zoning related stuff
+	void SendZoneCancel(ZoneChange_Struct *zc);
+	void SendZoneError(ZoneChange_Struct *zc, int8 err);
+	void DoZoneSuccess(ZoneChange_Struct *zc, uint16 zone_id, uint32 instance_id, float dest_x, float dest_y, float dest_z, float dest_h, int8 ignore_r);
+	void ZonePC(uint32 zoneID, uint32 instance_id, float x, float y, float z, float heading, uint8 ignorerestrictions, ZoneMode zm);
+	void ProcessMovePC(uint32 zoneID, uint32 instance_id, float x, float y, float z, float heading, uint8 ignorerestrictions = 0, ZoneMode zm = ZoneSolicited);
 
-  //Zoning related stuff
-  void SendZoneCancel(ZoneChange_Struct *zc);
-  void SendZoneError(ZoneChange_Struct *zc, int8 err);
-  void DoZoneSuccess(ZoneChange_Struct *zc, uint16 zone_id, uint32 instance_id, float dest_x, float dest_y, float dest_z, float dest_h, int8 ignore_r);
-  void ZonePC(uint32 zoneID, uint32 instance_id, float x, float y, float z, float heading, uint8 ignorerestrictions, ZoneMode zm);
-  void ProcessMovePC(uint32 zoneID, uint32 instance_id, float x, float y, float z, float heading, uint8 ignorerestrictions = 0, ZoneMode zm = ZoneSolicited);
+	glm::vec4 m_ZoneSummonLocation;
+	uint16 zonesummon_id;
+	uint8 zonesummon_ignorerestrictions;
+	ZoneMode zone_mode;
 
-  glm::vec4 m_ZoneSummonLocation;
-  uint16 zonesummon_id;
-  uint8 zonesummon_ignorerestrictions;
-  ZoneMode zone_mode;
+	WaterRegionType last_region_type;
 
-  WaterRegionType last_region_type;
+	// this is used to try to cut back on position update reflections
+	int position_update_same_count;
 
-  // this is used to try to cut back on position update reflections
-  int position_update_same_count;
+	PTimerList p_timers; //persistent timers
+	Timer hpupdate_timer;
+	Timer camp_timer;
+	Timer process_timer;
+	Timer consume_food_timer;
+	Timer zoneinpacket_timer;
+	Timer linkdead_timer;
+	Timer dead_timer;
+	Timer global_channel_timer;
+	Timer fishing_timer;
+	Timer endupkeep_timer;
+	Timer forget_timer; // our 2 min everybody forgets you timer
+	Timer autosave_timer;
+	Timer client_scan_npc_aggro_timer;
+	Timer client_zone_wide_full_position_update_timer;
+	Timer tribute_timer;
 
-  PTimerList p_timers; //persistent timers
-  Timer hpupdate_timer;
-  Timer camp_timer;
-  Timer process_timer;
-  Timer consume_food_timer;
-  Timer zoneinpacket_timer;
-  Timer linkdead_timer;
-  Timer dead_timer;
-  Timer global_channel_timer;
-  Timer shield_timer;
-  Timer fishing_timer;
-  Timer endupkeep_timer;
-  Timer forget_timer; // our 2 min everybody forgets you timer
-  Timer autosave_timer;
-  Timer client_scan_npc_aggro_timer;
-  Timer client_zone_wide_full_position_update_timer;
-  Timer tribute_timer;
+	Timer proximity_timer;
+	Timer TaskPeriodic_Timer;
+	Timer charm_update_timer;
+	Timer rest_timer;
+	Timer charm_class_attacks_timer;
+	Timer charm_cast_timer;
+	Timer qglobal_purge_timer;
+	Timer TrackingTimer;
+	Timer RespawnFromHoverTimer;
+	Timer merc_timer;
+	Timer anon_toggle_timer;
+	Timer afk_toggle_timer;
+	Timer helm_toggle_timer;
+	Timer aggro_meter_timer;
+	Timer mob_close_scan_timer;
+	Timer hp_self_update_throttle_timer; /* This is to prevent excessive packet sending under trains/fast combat */
+	Timer hp_other_update_throttle_timer; /* This is to keep clients from DOSing the server with macros that change client targets constantly */
+	Timer position_update_timer; /* Timer used when client hasn't updated within a 10 second window */
+	Timer consent_throttle_timer;
+	Timer dynamiczone_removal_timer;
 
-  Timer proximity_timer;
-  Timer TaskPeriodic_Timer;
-  Timer charm_update_timer;
-  Timer rest_timer;
-  Timer charm_class_attacks_timer;
-  Timer charm_cast_timer;
-  Timer qglobal_purge_timer;
-  Timer TrackingTimer;
-  Timer RespawnFromHoverTimer;
-  Timer merc_timer;
-  Timer anon_toggle_timer;
-  Timer afk_toggle_timer;
-  Timer helm_toggle_timer;
-  Timer aggro_meter_timer;
-  Timer mob_close_scan_timer;
-  Timer hp_self_update_throttle_timer; /* This is to prevent excessive packet sending under trains/fast combat */
-  Timer hp_other_update_throttle_timer; /* This is to keep clients from DOSing the server with macros that change client targets constantly */
-  Timer position_update_timer; /* Timer used when client hasn't updated within a 10 second window */
-  Timer consent_throttle_timer;
-  Timer dynamiczone_removal_timer;
+	glm::vec3 m_Proximity;
+	glm::vec4 last_position_before_bulk_update;
 
-  glm::vec3 m_Proximity;
-  glm::vec4 last_position_before_bulk_update;
+	void BulkSendInventoryItems();
 
-  void BulkSendInventoryItems();
+	faction_map factionvalues;
 
-  faction_map factionvalues;
+	uint32 tribute_master_id;
 
-  uint32 tribute_master_id;
+	bool npcflag;
+	uint8 npclevel;
+	bool feigned;
+	bool bZoning;
+	bool tgb;
+	bool instalog;
+	int32 last_reported_mana;
+	int32 last_reported_endurance;
 
-  bool npcflag;
-  uint8 npclevel;
-  bool feigned;
-  bool bZoning;
-  bool tgb;
-  bool instalog;
-  int32 last_reported_mana;
-  int32 last_reported_endurance;
+	int8 last_reported_mana_percent;
+	int8 last_reported_endurance_percent;
 
-  int8 last_reported_mana_percent;
-  int8 last_reported_endurance_percent;
+	unsigned int AggroCount; // How many mobs are aggro on us.
 
-  unsigned int AggroCount; // How many mobs are aggro on us.
+	bool ooc_regen;
+	float AreaHPRegen;
+	float AreaManaRegen;
+	float AreaEndRegen;
 
-  bool ooc_regen;
-  float AreaHPRegen;
-  float AreaManaRegen;
-  float AreaEndRegen;
+	std::set<uint32> zone_flags;
 
-  std::set<uint32> zone_flags;
+	ClientTaskState *task_state;
+	int TotalSecondsPlayed;
 
-  ClientTaskState *task_state;
-  int TotalSecondsPlayed;
+	//Anti Spam Stuff
+	Timer *KarmaUpdateTimer;
+	uint32 TotalKarma;
 
-  //Anti Spam Stuff
-  Timer *KarmaUpdateTimer;
-  uint32 TotalKarma;
+	Timer *GlobalChatLimiterTimer; //60 seconds
+	uint32 AttemptedMessages;
 
-  Timer *GlobalChatLimiterTimer; //60 seconds
-  uint32 AttemptedMessages;
+	EQ::versions::ClientVersion m_ClientVersion;
+	uint32 m_ClientVersionBit;
 
-  EQ::versions::ClientVersion m_ClientVersion;
-  uint32 m_ClientVersionBit;
+	int XPRate;
 
-  int XPRate;
+	bool alternate_currency_loaded;
+	std::map<uint32, uint32> alternate_currency;
+	std::queue<std::pair<uint32, int32>> alternate_currency_queued_operations;
 
-  bool alternate_currency_loaded;
-  std::map<uint32, uint32> alternate_currency;
-  std::queue<std::pair<uint32, int32>> alternate_currency_queued_operations;
+	//Connecting debug code.
+	enum { //connecting states, used for debugging only
+			NoPacketsReceived, //havent gotten anything
+			//this is the point where the client changes to the loading screen
+			ReceivedZoneEntry, //got the first packet, loading up PP
+			PlayerProfileLoaded, //our DB work is done, sending it
+			ZoneInfoSent, //includes PP, tributes, tasks, spawns, time and weather
+			//this is the point where the client shows a status bar zoning in
+			NewZoneRequested, //received and sent new zone request
+			ClientSpawnRequested, //client sent ReqClientSpawn
+			ZoneContentsSent, //objects, doors, zone points
+			ClientReadyReceived, //client told us its ready, send them a bunch of crap like guild MOTD, etc
+			//this is the point where the client releases the mouse
+			ClientConnectFinished //client finally moved to finished state, were done here
+	} conn_state;
+	void ReportConnectingState();
 
-  //Connecting debug code.
-  enum { //connecting states, used for debugging only
-      NoPacketsReceived, //havent gotten anything
-      //this is the point where the client changes to the loading screen
-      ReceivedZoneEntry, //got the first packet, loading up PP
-      PlayerProfileLoaded, //our DB work is done, sending it
-      ZoneInfoSent, //includes PP, tributes, tasks, spawns, time and weather
-      //this is the point where the client shows a status bar zoning in
-      NewZoneRequested, //received and sent new zone request
-      ClientSpawnRequested, //client sent ReqClientSpawn
-      ZoneContentsSent, //objects, doors, zone points
-      ClientReadyReceived, //client told us its ready, send them a bunch of crap like guild MOTD, etc
-      //this is the point where the client releases the mouse
-      ClientConnectFinished //client finally moved to finished state, were done here
-  } conn_state;
-  void ReportConnectingState();
+	uint8 HideCorpseMode;
+	bool PendingGuildInvitation;
+	int PendingRezzXP;
+	uint32 PendingRezzDBID;
+	uint16 PendingRezzSpellID; // Only used for resurrect while hovering.
+	std::string PendingRezzCorpseName; // Only used for resurrect while hovering.
 
-  uint8 HideCorpseMode;
-  bool PendingGuildInvitation;
-  int PendingRezzXP;
-  uint32 PendingRezzDBID;
-  uint16 PendingRezzSpellID; // Only used for resurrect while hovering.
-  std::string PendingRezzCorpseName; // Only used for resurrect while hovering.
+	std::set<uint32> PlayerBlockedBuffs;
+	std::set<uint32> PetBlockedBuffs;
+	std::list<std::pair<std::string, uint16> > DraggedCorpses;
 
-  std::set<uint32> PlayerBlockedBuffs;
-  std::set<uint32> PetBlockedBuffs;
-  std::list<std::pair<std::string, uint16> > DraggedCorpses;
+	uint8 MaxXTargets;
+	bool XTargetAutoAddHaters;
+	bool m_dirtyautohaters;
 
-  uint8 MaxXTargets;
-  bool XTargetAutoAddHaters;
-  bool m_dirtyautohaters;
+	struct XTarget_Struct XTargets[XTARGET_HARDCAP];
+	XTargetAutoHaters m_autohatermgr;
+	XTargetAutoHaters *m_activeautohatermgr;
 
-  struct XTarget_Struct XTargets[XTARGET_HARDCAP];
-  XTargetAutoHaters m_autohatermgr;
-  XTargetAutoHaters *m_activeautohatermgr;
+	AggroMeter m_aggrometer;
 
-  AggroMeter m_aggrometer;
+	Timer ItemTickTimer;
+	Timer ItemQuestTimer;
+	std::map<std::string,std::string> accountflags;
 
-  Timer ItemTickTimer;
-  Timer ItemQuestTimer;
-  std::map<std::string,std::string> accountflags;
-
-  uint8 initial_respawn_selection;
+	uint8 initial_respawn_selection;
 
   bool interrogateinv_flag; // used to minimize log spamming by players
 
