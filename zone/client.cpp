@@ -138,7 +138,6 @@ Client::Client(EQStreamInterface* ieqs)
   linkdead_timer(RuleI(Zone,ClientLinkdeadMS)),
   dead_timer(2000),
   global_channel_timer(1000),
-  shield_timer(500),
   fishing_timer(8000),
   endupkeep_timer(1000),
   forget_timer(0),
@@ -175,188 +174,185 @@ Client::Client(EQStreamInterface* ieqs)
   consent_throttle_timer(2000),
   tmSitting(0)
 {
+	for (int client_filter = 0; client_filter < _FilterCount; client_filter++)
+		ClientFilters[client_filter] = FilterShow;
 
-  for (int client_filter = 0; client_filter < _FilterCount; client_filter++)
-    ClientFilters[client_filter] = FilterShow;
+	mMovementManager->AddClient(this);
+	character_id = 0;
+	conn_state = NoPacketsReceived;
+	client_data_loaded = false;
+	feigned = false;
+	berserk = false;
+	dead = false;
+	eqs = ieqs;
+	ip = eqs->GetRemoteIP();
+	port = ntohs(eqs->GetRemotePort());
+	client_state = CLIENT_CONNECTING;
+	Trader=false;
+	Buyer = false;
+	Haste = 0;
+	CustomerID = 0;
+	TraderID = 0;
+	TrackingID = 0;
+	WID = 0;
+	account_id = 0;
+	admin = 0;
+	lsaccountid = 0;
+	guild_id = GUILD_NONE;
+	guildrank = 0;
+	GuildBanker = false;
+	memset(lskey, 0, sizeof(lskey));
+	strcpy(account_name, "");
+	tellsoff = false;
+	last_reported_mana = 0;
+	last_reported_endurance = 0;
+	last_reported_endurance_percent = 0;
+	last_reported_mana_percent = 0;
+	gm_hide_me = false;
+	AFK = false;
+	LFG = false;
+	LFGFromLevel = 0;
+	LFGToLevel = 0;
+	LFGMatchFilter = false;
+	LFGComments[0] = '\0';
+	LFP = false;
+	gmspeed = 0;
+	playeraction = 0;
+	SetTarget(0);
+	auto_attack = false;
+	auto_fire = false;
+	runmode = false;
+	linkdead_timer.Disable();
+	zonesummon_id = 0;
+	zonesummon_ignorerestrictions = 0;
+	bZoning = false;
+	zone_mode = ZoneUnsolicited;
+	casting_spell_id = 0;
+	npcflag = false;
+	npclevel = 0;
+	pQueuedSaveWorkID = 0;
+	position_update_same_count = 0;
+	fishing_timer.Disable();
+	dead_timer.Disable();
+	camp_timer.Disable();
+	autosave_timer.Disable();
+	GetMercTimer()->Disable();
+	instalog = false;
+	pLastUpdate = 0;
+	pLastUpdateWZ = 0;
+	m_pp.autosplit = false;
+	// initialise haste variable
+	m_tradeskill_object = nullptr;
+	delaytimer = false;
+	PendingRezzXP = -1;
+	PendingRezzDBID = 0;
+	PendingRezzSpellID = 0;
+	numclients++;
+	// emuerror;
+	UpdateWindowTitle(nullptr);
+	horseId = 0;
+	tgb = false;
+	tribute_master_id = 0xFFFFFFFF;
+	tribute_timer.Disable();
+	task_state         = nullptr;
+	TotalSecondsPlayed = 0;
+	keyring.clear();
+	bind_sight_target = nullptr;
+	p_raid_instance = nullptr;
+	mercid = 0;
+	mercSlot = 0;
+	InitializeMercInfo();
+	SetMerc(0);
+	if (RuleI(World, PVPMinLevel) > 0 && level >= RuleI(World, PVPMinLevel) && m_pp.pvp == 0) SetPVP(true, false);
+	dynamiczone_removal_timer.Disable();
 
-  mMovementManager->AddClient(this);
-  character_id = 0;
-  conn_state = NoPacketsReceived;
-  client_data_loaded = false;
-  feigned = false;
-  berserk = false;
-  dead = false;
-  eqs = ieqs;
-  ip = eqs->GetRemoteIP();
-  port = ntohs(eqs->GetRemotePort());
-  client_state = CLIENT_CONNECTING;
-  Trader=false;
-  Buyer = false;
-  Haste = 0;
-  CustomerID = 0;
-  TraderID = 0;
-  TrackingID = 0;
-  WID = 0;
-  account_id = 0;
-  admin = 0;
-  lsaccountid = 0;
-  shield_target = nullptr;
-  guild_id = GUILD_NONE;
-  guildrank = 0;
-  GuildBanker = false;
-  memset(lskey, 0, sizeof(lskey));
-  strcpy(account_name, "");
-  tellsoff = false;
-  last_reported_mana = 0;
-  last_reported_endurance = 0;
-  last_reported_endurance_percent = 0;
-  last_reported_mana_percent = 0;
-  gm_hide_me = false;
-  AFK = false;
-  LFG = false;
-  LFGFromLevel = 0;
-  LFGToLevel = 0;
-  LFGMatchFilter = false;
-  LFGComments[0] = '\0';
-  LFP = false;
-  gmspeed = 0;
-  playeraction = 0;
-  SetTarget(0);
-  auto_attack = false;
-  auto_fire = false;
-  runmode = false;
-  linkdead_timer.Disable();
-  zonesummon_id = 0;
-  zonesummon_ignorerestrictions = 0;
-  bZoning = false;
-  zone_mode = ZoneUnsolicited;
-  casting_spell_id = 0;
-  npcflag = false;
-  npclevel = 0;
-  pQueuedSaveWorkID = 0;
-  position_update_same_count = 0;
-  fishing_timer.Disable();
-  shield_timer.Disable();
-  dead_timer.Disable();
-  camp_timer.Disable();
-  autosave_timer.Disable();
-  GetMercTimer()->Disable();
-  instalog = false;
-  pLastUpdate = 0;
-  pLastUpdateWZ = 0;
-  m_pp.autosplit = false;
-  // initialise haste variable
-  m_tradeskill_object = nullptr;
-  delaytimer = false;
-  PendingRezzXP = -1;
-  PendingRezzDBID = 0;
-  PendingRezzSpellID = 0;
-  numclients++;
-  // emuerror;
-  UpdateWindowTitle(nullptr);
-  horseId = 0;
-  tgb = false;
-  tribute_master_id = 0xFFFFFFFF;
-  tribute_timer.Disable();
-  task_state         = nullptr;
-  TotalSecondsPlayed = 0;
-  keyring.clear();
-  bind_sight_target = nullptr;
-  p_raid_instance = nullptr;
-  mercid = 0;
-  mercSlot = 0;
-  InitializeMercInfo();
-  SetMerc(0);
-  if (RuleI(World, PVPMinLevel) > 0 && level >= RuleI(World, PVPMinLevel) && m_pp.pvp == 0) SetPVP(true, false);
-  dynamiczone_removal_timer.Disable();
+	//for good measure:
+	memset(&m_pp, 0, sizeof(m_pp));
+	memset(&m_epp, 0, sizeof(m_epp));
+	PendingTranslocate = false;
+	PendingSacrifice = false;
+	controlling_boat_id = 0;
+	controlled_mob_id = 0;
 
-  //for good measure:
-  memset(&m_pp, 0, sizeof(m_pp));
-  memset(&m_epp, 0, sizeof(m_epp));
-  PendingTranslocate = false;
-  PendingSacrifice = false;
-  controlling_boat_id = 0;
-  controlled_mob_id = 0;
+	if (!RuleB(Character, PerCharacterQglobalMaxLevel) && !RuleB(Character, PerCharacterBucketMaxLevel)) {
+		SetClientMaxLevel(0);
+	} else if (RuleB(Character, PerCharacterQglobalMaxLevel)) {
+		int client_max_level = GetCharMaxLevelFromQGlobal();
+		SetClientMaxLevel(client_max_level);
+	} else if (RuleB(Character, PerCharacterBucketMaxLevel)) {
+		int client_max_level = GetCharMaxLevelFromBucket();
+		SetClientMaxLevel(client_max_level);
+	}
 
-  if (!RuleB(Character, PerCharacterQglobalMaxLevel) && !RuleB(Character, PerCharacterBucketMaxLevel)) {
-    SetClientMaxLevel(0);
-  } else if (RuleB(Character, PerCharacterQglobalMaxLevel)) {
-    int client_max_level = GetCharMaxLevelFromQGlobal();
-    SetClientMaxLevel(client_max_level);
-  } else if (RuleB(Character, PerCharacterBucketMaxLevel)) {
-    int client_max_level = GetCharMaxLevelFromBucket();
-    SetClientMaxLevel(client_max_level);
-  }
+	KarmaUpdateTimer = new Timer(RuleI(Chat, KarmaUpdateIntervalMS));
+	GlobalChatLimiterTimer = new Timer(RuleI(Chat, IntervalDurationMS));
+	AttemptedMessages = 0;
+	TotalKarma = 0;
+	m_ClientVersion = EQ::versions::ClientVersion::Unknown;
+	m_ClientVersionBit = 0;
+	AggroCount = 0;
+	ooc_regen = false;
+	AreaHPRegen = 1.0f;
+	AreaManaRegen = 1.0f;
+	AreaEndRegen = 1.0f;
+	XPRate = 100;
+	current_endurance = 0;
 
-  KarmaUpdateTimer = new Timer(RuleI(Chat, KarmaUpdateIntervalMS));
-  GlobalChatLimiterTimer = new Timer(RuleI(Chat, IntervalDurationMS));
-  AttemptedMessages = 0;
-  TotalKarma = 0;
-  m_ClientVersion = EQ::versions::ClientVersion::Unknown;
-  m_ClientVersionBit = 0;
-  AggroCount = 0;
-  ooc_regen = false;
-  AreaHPRegen = 1.0f;
-  AreaManaRegen = 1.0f;
-  AreaEndRegen = 1.0f;
-  XPRate = 100;
-  current_endurance = 0;
+	CanUseReport = true;
+	aa_los_them_mob = nullptr;
+	los_status = false;
+	los_status_facing = false;
+	qGlobals = nullptr;
+	HideCorpseMode = HideCorpseNone;
+	PendingGuildInvitation = false;
 
-  CanUseReport = true;
-  aa_los_them_mob = nullptr;
-  los_status = false;
-  los_status_facing = false;
-  qGlobals = nullptr;
-  HideCorpseMode = HideCorpseNone;
-  PendingGuildInvitation = false;
+	current_endurance = 0;
 
-  current_endurance = 0;
+	InitializeBuffSlots();
 
-  InitializeBuffSlots();
+	adventure_request_timer = nullptr;
+	adventure_create_timer = nullptr;
+	adventure_leave_timer = nullptr;
+	adventure_door_timer = nullptr;
+	adv_requested_data = nullptr;
+	adventure_stats_timer = nullptr;
+	adventure_leaderboard_timer = nullptr;
+	adv_data = nullptr;
+	adv_requested_theme = 0;
+	adv_requested_id = 0;
+	adv_requested_member_count = 0;
 
-  adventure_request_timer = nullptr;
-  adventure_create_timer = nullptr;
-  adventure_leave_timer = nullptr;
-  adventure_door_timer = nullptr;
-  adv_requested_data = nullptr;
-  adventure_stats_timer = nullptr;
-  adventure_leaderboard_timer = nullptr;
-  adv_data = nullptr;
-  adv_requested_theme = 0;
-  adv_requested_id = 0;
-  adv_requested_member_count = 0;
+	for(int i = 0; i < XTARGET_HARDCAP; ++i)
+	{
+		XTargets[i].Type = Auto;
+		XTargets[i].ID = 0;
+		XTargets[i].Name[0] = 0;
+		XTargets[i].dirty = false;
+	}
+	MaxXTargets = 5;
+	XTargetAutoAddHaters = true;
+	m_autohatermgr.SetOwner(this, nullptr, nullptr);
+	m_activeautohatermgr = &m_autohatermgr;
+	LoadAccountFlags();
 
-  for(int i = 0; i < XTARGET_HARDCAP; ++i)
-  {
-    XTargets[i].Type = Auto;
-    XTargets[i].ID = 0;
-    XTargets[i].Name[0] = 0;
-    XTargets[i].dirty = false;
-  }
-  MaxXTargets = 5;
-  XTargetAutoAddHaters = true;
-  m_autohatermgr.SetOwner(this, nullptr, nullptr);
-  m_activeautohatermgr = &m_autohatermgr;
-  LoadAccountFlags();
+	initial_respawn_selection = 0;
+	alternate_currency_loaded = false;
 
-  initial_respawn_selection = 0;
-  alternate_currency_loaded = false;
+	interrogateinv_flag = false;
 
-  interrogateinv_flag = false;
+	trapid = 0;
 
-  trapid = 0;
+	for (int i = 0; i < InnateSkillMax; ++i)
+		m_pp.InnateSkills[i] = InnateDisabled;
 
-  for (int i = 0; i < InnateSkillMax; ++i)
-    m_pp.InnateSkills[i] = InnateDisabled;
+	temp_pvp = false;
+	is_client_moving = false;
 
-  temp_pvp = false;
-  is_client_moving = false;
-
-  /**
-   * GM
-   */
-  SetDisplayMobInfoWindow(true);
-  SetDevToolsEnabled(true);
+	/**
+	 * GM
+	 */
+	SetDisplayMobInfoWindow(true);
+	SetDevToolsEnabled(true);
 
 #ifdef BOTS
   bot_owner_options[booDeathMarquee] = false;
@@ -599,11 +595,8 @@ bool Client::SaveAA() {
     if(!ability)
       continue;
 
-    if(rank.second.first > 0) {
-      AA::Rank *r = ability->GetRankByPointsSpent(rank.second.first);
-
-      if(!r)
-        continue;
+	if(GetTarget())
+		GetTarget()->IsTargeted(-1);
 
       spentpoints += r->total_cost;
 
