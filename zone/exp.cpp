@@ -879,7 +879,16 @@ void Client::SetLevel(uint8 set_level, bool command)
 
 	DoTributeUpdate();
 	SendHPUpdate();
-	SetMana(CalcMaxMana());
+	
+	if(!RuleB(Character, ManaOnLevel)) {
+		int mmp = CalcMaxMana();
+		if(GetMana() > mmp)
+			SetMana(mmp);
+	}
+	else {
+		SetMana(CalcMaxMana()); // Full mana
+	}
+	
 	UpdateWho();
 
 	UpdateMercLevel();

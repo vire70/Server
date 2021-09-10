@@ -71,6 +71,7 @@ RULE_INT(Character, ManaRegenMultiplier, 100, "The mana regeneration is multipli
 RULE_INT(Character, EnduranceRegenMultiplier, 100, "The endurance regeneration is multiplied by value/100 (up to the caps)")
 RULE_BOOL(Character, OldMinMana, false, "This is used for servers that want to follow older skill cap formulas so they can still have some regen w/o mediate")
 RULE_BOOL(Character, HealOnLevel, false, "Setting whether a player should heal completely when leveling")
+RULE_BOOL(Character, ManaOnLevel, false, "Restore player's full mana on level up")
 RULE_BOOL(Character, FeignKillsPet, false, "Setting whether Feign Death kills the player pet")
 RULE_INT(Character, ItemManaRegenCap, 15, "Limit on mana regeneration granted by items")
 RULE_INT(Character, ItemHealthRegenCap, 30, "Limit on health regeneration granted by items")

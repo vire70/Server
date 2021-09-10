@@ -1,19 +1,19 @@
 /* EQEMu: Everquest Server Emulator
-	Copyright (C) 2001-2003 EQEMu Development Team (http://eqemulator.org)
+  Copyright (C) 2001-2003 EQEMu Development Team (http://eqemulator.org)
 
-	This program is free software; you can redistribute it and/or modify
-	it under the terms of the GNU General Public License as published by
-	the Free Software Foundation; version 2 of the License.
+  This program is free software; you can redistribute it and/or modify
+  it under the terms of the GNU General Public License as published by
+  the Free Software Foundation; version 2 of the License.
 
-	This program is distributed in the hope that it will be useful,
-	but WITHOUT ANY WARRANTY except by those people which sell it, which
-	are required to give you total support for your newly bought product;
-	without even the implied warranty of MERCHANTABILITY or FITNESS FOR
-	A PARTICULAR PURPOSE. See the GNU General Public License for more details.
+  This program is distributed in the hope that it will be useful,
+  but WITHOUT ANY WARRANTY except by those people which sell it, which
+  are required to give you total support for your newly bought product;
+  without even the implied warranty of MERCHANTABILITY or FITNESS FOR
+  A PARTICULAR PURPOSE. See the GNU General Public License for more details.
 
-	You should have received a copy of the GNU General Public License
-	along with this program; if not, write to the Free Software
-	Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
+  You should have received a copy of the GNU General Public License
+  along with this program; if not, write to the Free Software
+  Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
 */
 #ifndef CLIENT_H
 #define CLIENT_H
@@ -36,7 +36,7 @@ enum WaterRegionType : int;
 
 namespace EQ
 {
-	struct ItemData;
+  struct ItemData;
 }
 
 #include "../common/timer.h"
@@ -69,10 +69,10 @@ namespace EQ
 #include "cheat_manager.h"
 
 #ifdef _WINDOWS
-	// since windows defines these within windef.h (which windows.h include)
-	// we are required to undefine these to use min and max from <algorithm>
-	#undef min
-	#undef max
+  // since windows defines these within windef.h (which windows.h include)
+  // we are required to undefine these to use min and max from <algorithm>
+  #undef min
+  #undef max
 #endif
 
 #include <float.h>
@@ -94,113 +94,124 @@ extern TaskManager *task_manager;
 class CLIENTPACKET
 {
 public:
-	CLIENTPACKET();
-	~CLIENTPACKET();
-	EQApplicationPacket *app;
-	bool ack_req;
+  CLIENTPACKET();
+  ~CLIENTPACKET();
+  EQApplicationPacket *app;
+  bool ack_req;
 };
 
 #define SPELLBAR_UNLOCK 0x2bc
 enum { //scribing argument to MemorizeSpell
-	memSpellUnknown = -1, // this modifies some state data
-	memSpellScribing = 0,
-	memSpellMemorize = 1,
-	memSpellForget = 2,
-	memSpellSpellbar = 3
+  memSpellUnknown = -1, // this modifies some state data
+  memSpellScribing = 0,
+  memSpellMemorize = 1,
+  memSpellForget = 2,
+  memSpellSpellbar = 3
 };
 
 //Modes for the zoning state of the client.
 typedef enum {
-	ZoneToSafeCoords, // Always send ZonePlayerToBind_Struct to client: Succor/Evac
-	GMSummon, // Always send ZonePlayerToBind_Struct to client: Only a GM Summon
-	ZoneToBindPoint, // Always send ZonePlayerToBind_Struct to client: Death Only
-	ZoneSolicited, // Always send ZonePlayerToBind_Struct to client: Portal, Translocate, Evac spells that have a x y z coord in the spell data
-	ZoneUnsolicited,
-	GateToBindPoint, // Always send RequestClientZoneChange_Struct to client: Gate spell or Translocate To Bind Point spell
-	SummonPC, // In-zone GMMove() always: Call of the Hero spell or some other type of in zone only summons
-	Rewind, // Summon to /rewind location.
-	EvacToSafeCoords
+  ZoneToSafeCoords, // Always send ZonePlayerToBind_Struct to client: Succor/Evac
+  GMSummon, // Always send ZonePlayerToBind_Struct to client: Only a GM Summon
+  ZoneToBindPoint, // Always send ZonePlayerToBind_Struct to client: Death Only
+  ZoneSolicited, // Always send ZonePlayerToBind_Struct to client: Portal, Translocate, Evac spells that have a x y z coord in the spell data
+  ZoneUnsolicited,
+  GateToBindPoint, // Always send RequestClientZoneChange_Struct to client: Gate spell or Translocate To Bind Point spell
+  SummonPC, // In-zone GMMove() always: Call of the Hero spell or some other type of in zone only summons
+  Rewind, // Summon to /rewind location.
+  EvacToSafeCoords
 } ZoneMode;
 
+typedef enum {
+  MQWarp,
+  MQWarpShadowStep,
+  MQWarpKnockBack,
+  MQWarpLight,
+  MQZone,
+  MQZoneUnknownDest,
+  MQGate,
+  MQGhost
+} CheatTypes;
+
 enum {
-	HideCorpseNone = 0,
-	HideCorpseAll = 1,
-	HideCorpseAllButGroup = 2,
-	HideCorpseLooted = 3,
-	HideCorpseNPC = 5
+  HideCorpseNone = 0,
+  HideCorpseAll = 1,
+  HideCorpseAllButGroup = 2,
+  HideCorpseLooted = 3,
+  HideCorpseNPC = 5
 };
 
 typedef enum
 {
-	Empty = 0,
-	Auto = 1,
-	CurrentTargetPC = 2,
-	CurrentTargetNPC = 3,
-	TargetsTarget = 4,
-	GroupTank = 5,
-	GroupTankTarget = 6,
-	GroupAssist = 7,
-	GroupAssistTarget = 8,
-	Puller = 9,
-	PullerTarget = 10,
-	GroupMarkTarget1 = 11,
-	GroupMarkTarget2 = 12,
-	GroupMarkTarget3 = 13,
-	RaidAssist1 = 14,
-	RaidAssist2 = 15,
-	RaidAssist3 = 16,
-	RaidAssist1Target = 17,
-	RaidAssist2Target = 18,
-	RaidAssist3Target = 19,
-	RaidMarkTarget1 = 20,
-	RaidMarkTarget2 = 21,
-	RaidMarkTarget3 = 22,
-	MyPet = 23,
-	MyPetTarget = 24,
-	MyMercenary = 25,
-	MyMercenaryTarget = 26
+  Empty = 0,
+  Auto = 1,
+  CurrentTargetPC = 2,
+  CurrentTargetNPC = 3,
+  TargetsTarget = 4,
+  GroupTank = 5,
+  GroupTankTarget = 6,
+  GroupAssist = 7,
+  GroupAssistTarget = 8,
+  Puller = 9,
+  PullerTarget = 10,
+  GroupMarkTarget1 = 11,
+  GroupMarkTarget2 = 12,
+  GroupMarkTarget3 = 13,
+  RaidAssist1 = 14,
+  RaidAssist2 = 15,
+  RaidAssist3 = 16,
+  RaidAssist1Target = 17,
+  RaidAssist2Target = 18,
+  RaidAssist3Target = 19,
+  RaidMarkTarget1 = 20,
+  RaidMarkTarget2 = 21,
+  RaidMarkTarget3 = 22,
+  MyPet = 23,
+  MyPetTarget = 24,
+  MyMercenary = 25,
+  MyMercenaryTarget = 26
 
 } XTargetType;
 
 struct XTarget_Struct
 {
-	XTargetType Type;
-	bool dirty;
-	uint16 ID;
-	char Name[65];
+  XTargetType Type;
+  bool dirty;
+  uint16 ID;
+  char Name[65];
 };
 
 struct RespawnOption
 {
-	std::string name;
-	uint32 zone_id;
-	uint16 instance_id;
-	float x;
-	float y;
-	float z;
-	float heading;
+  std::string name;
+  uint32 zone_id;
+  uint16 instance_id;
+  float x;
+  float y;
+  float z;
+  float heading;
 };
 
 // do not ask what all these mean because I have no idea!
 // named from the client's CEverQuest::GetInnateDesc, they're missing some
 enum eInnateSkill {
-	InnateEnabled = 0,
-	InnateAwareness = 1,
-	InnateBashDoor = 2,
-	InnateBreathFire = 3,
-	InnateHarmony = 4,
-	InnateInfravision = 6,
-	InnateLore = 8,
-	InnateNoBash = 9,
-	InnateRegen = 10,
-	InnateSlam = 11,
-	InnateSurprise = 12,
-	InnateUltraVision = 13,
-	InnateInspect = 14,
-	InnateOpen = 15,
-	InnateReveal = 16,
-	InnateSkillMax = 25, // size of array in client
-	InnateDisabled = 255
+  InnateEnabled = 0,
+  InnateAwareness = 1,
+  InnateBashDoor = 2,
+  InnateBreathFire = 3,
+  InnateHarmony = 4,
+  InnateInfravision = 6,
+  InnateLore = 8,
+  InnateNoBash = 9,
+  InnateRegen = 10,
+  InnateSlam = 11,
+  InnateSurprise = 12,
+  InnateUltraVision = 13,
+  InnateInspect = 14,
+  InnateOpen = 15,
+  InnateReveal = 16,
+  InnateSkillMax = 25, // size of array in client
+  InnateDisabled = 255
 };
 
 const std::string DIAWIND_RESPONSE_KEY           = "diawind_npcresponse";
@@ -209,13 +220,13 @@ const uint32      POPUPID_UPDATE_SHOWSTATSWINDOW = 1000000;
 
 struct ClientReward
 {
-	uint32 id;
-	uint32 amount;
+  uint32 id;
+  uint32 amount;
 };
 
 class ClientFactory {
 public:
-	Client *MakeClient(std::shared_ptr<EQStreamInterface> ieqs);
+  Client *MakeClient(std::shared_ptr<EQStreamInterface> ieqs);
 };
 
 class Client : public Mob
@@ -572,7 +583,7 @@ public:
 	/*Endurance and such*/
 	void CalcMaxEndurance(); //This calculates the maximum endurance we can have
 	int32 CalcBaseEndurance(); //Calculates Base End
-	int32 CalcEnduranceRegen(bool bCombat = false); //Calculates endurance regen used in DoEnduranceRegen()
+	int32 CalcEnduranceRegen(); //Calculates endurance regen used in DoEnduranceRegen()
 	int32 GetEndurance() const {return current_endurance;} //This gets our current endurance
 	int32 GetMaxEndurance() const {return max_end;} //This gets our endurance from the last CalcMaxEndurance() call
 	int32 CalcEnduranceRegenCap();
@@ -817,7 +828,7 @@ public:
 	inline bool GetFeigned() const { return(feigned); }
 	EQStreamInterface* Connection() { return eqs; }
 #ifdef PACKET_PROFILER
-	void DumpPacketProfile() { if(eqs) eqs->DumpPacketProfile(); }
+  void DumpPacketProfile() { if(eqs) eqs->DumpPacketProfile(); }
 #endif
 	uint32 GetEquippedItemFromTextureSlot(uint8 material_slot) const; // returns item id
 	uint32 GetEquipmentColor(uint8 material_slot) const;
@@ -1650,8 +1661,7 @@ protected:
 	int adv_requested_member_count;
 	char *adv_data;
 
-private:
-
+private:	
 	eqFilterMode ClientFilters[_FilterCount];
 	int32 HandlePacket(const EQApplicationPacket *app);
 	void OPTGB(const EQApplicationPacket *app);
@@ -1692,8 +1702,8 @@ private:
 	int32 CalcCorrup();
 	int32 CalcMaxHP();
 	int32 CalcBaseHP();
-	int32 CalcHPRegen(bool bCombat = false);
-	int32 CalcManaRegen(bool bCombat = false);
+	int32 CalcHPRegen();
+	int32 CalcManaRegen();
 	int32 CalcBaseManaRegen();
 	uint32 GetClassHPFactor();
 	void DoHPRegen();
@@ -1946,49 +1956,48 @@ private:
 
 	uint8 initial_respawn_selection;
 
-	bool interrogateinv_flag; // used to minimize log spamming by players
+  bool interrogateinv_flag; // used to minimize log spamming by players
 
-	void InterrogateInventory_(bool errorcheck, Client* requester, int16 head, int16 index, const EQ::ItemInstance* inst, const EQ::ItemInstance* parent, bool log, bool silent, bool &error, int depth);
-	bool InterrogateInventory_error(int16 head, int16 index, const EQ::ItemInstance* inst, const EQ::ItemInstance* parent, int depth);
+  void InterrogateInventory_(bool errorcheck, Client* requester, int16 head, int16 index, const EQ::ItemInstance* inst, const EQ::ItemInstance* parent, bool log, bool silent, bool &error, int depth);
+  bool InterrogateInventory_error(int16 head, int16 index, const EQ::ItemInstance* inst, const EQ::ItemInstance* parent, int depth);
 
-	int client_max_level;
+  int client_max_level;
 
-	uint32 m_expedition_id = 0;
-	ExpeditionInvite m_pending_expedition_invite { 0 };
-	std::vector<ExpeditionLockoutTimer> m_expedition_lockouts;
-	glm::vec3 m_quest_compass;
-	bool m_has_quest_compass = false;
-	std::vector<uint32_t> m_dynamic_zone_ids;
+  uint32 m_expedition_id = 0;
+  ExpeditionInvite m_pending_expedition_invite { 0 };
+  std::vector<ExpeditionLockoutTimer> m_expedition_lockouts;
+  glm::vec3 m_quest_compass;
+  bool m_has_quest_compass = false;
 
 #ifdef BOTS
 
 public:
-	enum BotOwnerOption : size_t {
-		booDeathMarquee,
-		booStatsUpdate,
-		booSpawnMessageSay,
-		booSpawnMessageTell,
-		booSpawnMessageClassSpecific,
-		booAltCombat,
-		booAutoDefend,
-		booBuffCounter,
-		booMonkWuMessage,
-		_booCount
-	};
+  enum BotOwnerOption : size_t {
+    booDeathMarquee,
+    booStatsUpdate,
+    booSpawnMessageSay,
+    booSpawnMessageTell,
+    booSpawnMessageClassSpecific,
+    booAltCombat,
+    booAutoDefend,
+    booBuffCounter,
+    booMonkWuMessage,
+    _booCount
+  };
 
-	bool GetBotOption(BotOwnerOption boo) const;
-	void SetBotOption(BotOwnerOption boo, bool flag = true);
+  bool GetBotOption(BotOwnerOption boo) const;
+  void SetBotOption(BotOwnerOption boo, bool flag = true);
 
-	bool GetBotPulling() { return m_bot_pulling; }
-	void SetBotPulling(bool flag = true) { m_bot_pulling = flag; }
+  bool GetBotPulling() { return m_bot_pulling; }
+  void SetBotPulling(bool flag = true) { m_bot_pulling = flag; }
 
-	bool GetBotPrecombat() { return m_bot_precombat; }
-	void SetBotPrecombat(bool flag = true) { m_bot_precombat = flag; }
+  bool GetBotPrecombat() { return m_bot_precombat; }
+  void SetBotPrecombat(bool flag = true) { m_bot_precombat = flag; }
 
 private:
-	bool bot_owner_options[_booCount];
-	bool m_bot_pulling;
-	bool m_bot_precombat;
+  bool bot_owner_options[_booCount];
+  bool m_bot_pulling;
+  bool m_bot_precombat;
 
 #endif
 };
